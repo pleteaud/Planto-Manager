@@ -26,6 +26,8 @@ void bufferInit(buffer_t *bufP);
 void *bufferSetData(buffer_t *bufP, uint8_t size);
 void *bufferGetData(buffer_t *bufP, uint8_t size);
 void bufferClear(buffer_t *buffP);
+void bufferTransferToMaster(buffer_t *buffP);
+void bufferTransferToSlave(buffer_t *buffP);
 buffer_t* retrieveActiveBuffer(void);
 uint8_t bufferGetCtrlStatus(const buffer_t *buffP);
 uint8_t checkAvailableSpace(buffer_t *buffP);
