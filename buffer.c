@@ -11,17 +11,28 @@
 #include "buffer.h"
 #include "stddef.h"
 
-#define BUFFER_MASK	           (0x01)
-#define BUFFER_OWNER_BIT_POS   (0x00)
-#define BUFFER_OWNER_MASTER    (0x00)
-#define BUFFER_OWNER_SLAVE     (0x01)
+#define MAX_BUFFER_SIZE			(0x14)
 
-#define BUFFER_OVR_POS         (0x01)
-#define BUFFER_UND_POS         (0x02)
-#define BUFFER_OVR_UND         (0x01)
-#define BUFFER_NO_ERROR		   (0x00)
+#define BUFFER_OWNER_MASK		(0x01)
+#define BUFFER_OWNER_POS		(0x00)
+#define BUFFER_OWNER			(BUFFER_OWNER_MASK << BUFFER_OWNER_POS)
 
-#define MAX_BUFFER_SIZE        (0x14)
+#define BUFFER_OVR_MASK			(0x01)
+#define BUFFER_OVR_POS			(0x01)
+#define BUFFER_OVR				(BUFFER_OVR_MASK << BUFFER_OVR_POS)
+
+#define BUFFER_UND_MASK			(0x01)
+#define BUFFER_UND_POS			(0x02)
+#define BUFFER_UND				(BUFFER_UND_MASK << BUFFER_UND_POS)
+
+enum
+{
+	BUFFER_NO_ERROR = 0x00,
+	BUFFER_OWNER_MASTER = 0x00,
+	BUFFER_OWNER_SLAVE  = 0x01
+};
+
+
 
 /************************************************************************/
 /*						Struct Implementation		                    */
@@ -53,7 +64,7 @@ buffer_t* retrieveActiveBuffer(void)
 /* Determine who owns the buffer currently */
 uint8_t bufferGetCtrlStatus(const buffer_t *buffP)
 {
-	return (buffP->flags & (BUFFER_MASK << BUFFER_OWNER_BIT_POS) == BUFFER_OWNER_MASTER ? (BUFFER_OWNER_MASTER) : (BUFFER_OWNER_SLAVE));
+	return (((buffP->flags & BUFFER_OWNER) == BUFFER_OWNER_MASTER) ? (BUFFER_OWNER_MASTER) : (BUFFER_OWNER_SLAVE));
 	
 }
 
@@ -62,9 +73,8 @@ void bufferInit(buffer_t *buffP)
 {
 	buffP->dataInP = buffP->buffer;
 	buffP->dataOutP = buffP->buffer;
-	buffP->flags = 0 | (BUFFER_OWNER_MASTER << BUFFER_OWNER_BIT_POS);
+	buffP->flags = BUFFER_OWNER_MASTER; // Master has initial control over buffer 
 	buffP->count = 0;
-	
 }
 
 /* Reserve space within buffer for the amount of data that will be added */
@@ -77,7 +87,7 @@ void *bufferSetData(buffer_t *buffP, uint8_t size)
 	{	
 		// there's not enough space to put any more data
 		dataP = NULL;
-		buffP->flags |= (BUFFER_OVR_UND <<BUFFER_OVR_POS);
+		buffP->flags |= BUFFER_OVR;
 	}
 	// If there's free space
 	else if(freeSpace >= size)
@@ -99,7 +109,7 @@ void *bufferGetData(buffer_t *buffP, uint8_t size)
 	{
 		//indicate underflow
 		dataP = NULL;
-		buffP->flags |=  (BUFFER_OVR_UND << BUFFER_UND_POS);
+		buffP->flags |=  BUFFER_UND;
 	}
 	//retrieve current 
 	else if(filledSpace >= size)
@@ -115,13 +125,13 @@ void *bufferGetData(buffer_t *buffP, uint8_t size)
 /* Transfer control of buffer to slave device */
 void bufferTransferToSlave(buffer_t *buffP)
 {
-	buffP->flags = (buffP->flags & ~BUFFER_MASK) | (BUFFER_OWNER_SLAVE << BUFFER_OWNER_BIT_POS);
+	buffP->flags = (buffP->flags & ~BUFFER_OWNER) | (BUFFER_OWNER_SLAVE << BUFFER_OWNER_POS);
 }
 
 /* Transfer control of buffer to master device */
 void bufferTransferToMaster(buffer_t *buffP)
 {
-	buffP->flags = (buffP->flags & ~BUFFER_MASK) | (BUFFER_OWNER_MASTER << BUFFER_OWNER_BIT_POS);
+	buffP->flags = (buffP->flags & ~BUFFER_OWNER) | (BUFFER_OWNER_MASTER << BUFFER_OWNER_POS);
 }
 
 /* Clear buffer contents */
