@@ -73,6 +73,6 @@ void rtcUpdateStatus(void);
 void rtcPoll(void);
 bool rtcSetTime(rtc_manager_t *rtcP, uint8_t *time);
 void rtcUpdateSREG(rtc_manager_t *rtcP, uint8_t newSREG);
-bool rtcUpdateCtrlReg();
+bool rtcSetCtrlReg();
 uint8_t rtcGetSREG(rtc_manager_t *rtcP);
 #endif /* RTC_H_ */

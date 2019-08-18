@@ -170,7 +170,7 @@ void rtcPoll(void)
 	return;
 }
 
-bool rtcUpdateCtrlReg(rtc_manager_t *rtcP)
+bool rtcSetCtrlReg(rtc_manager_t *rtcP)
 {
 	
 	/* Check if there's an ongoing command */
