@@ -21,7 +21,7 @@ struct rtc_manager_s
 {
 	uint8_t time[TIME_UNITS_TOTAL];
 	uint8_t ctrlReg;
-	uint8_t ctrlStatusReg;
+	uint8_t ctrlSREG;
 	uint8_t agingOffsetReg;
 	uint16_t tempReg;
 	enum rtc_state_e state;
@@ -45,7 +45,7 @@ static void insertTimeInPayload(uint64_t configTime, uint8_t *payload, uint8_t n
 void rtcInit(rtc_manager_t *rtcP, uint8_t ctrlRegConfigBits, uint8_t statusConfigBits)
 {
 	rtcP->ctrlReg = ctrlRegConfigBits;
-	rtcP->ctrlStatusReg = statusConfigBits;
+	rtcP->ctrlSREG = statusConfigBits;
 	rtcP->agingOffsetReg = 0;
 	rtcP->tempReg = 0;
 	rtcP->state = RTC_UNSET;
@@ -141,6 +141,7 @@ void rtcPoll(void)
 	if(rtcP->state == RTC_UNSET)
 	{
 		rtcSetTime(rtcP, rtcP->time);
+		return;
 	}
 	/* Check if there's an update to the status  */
 	if(!updateStatusReg)
@@ -157,16 +158,39 @@ void rtcPoll(void)
 	/* Clear updateStatusReg since RTC now has control of the command procedure */
 	updateStatusReg = false;
 	
+	/* Send command to read status register */
 	cmd_hdr_t *cmdHdr;
-	cmdHdr = bufferSetData(retrieveActiveBuffer(), sizeof(cmd_hdr_t) + START_ADDRESS_OFFSET);
+	cmdHdr = bufferSetData(retrieveActiveBuffer(), sizeof(cmd_hdr_t) + sizeof(read_status_reg_cmd_t));
 	cmdHdr->type = READ_STATUS_REGS;
-	cmdHdr->length = sizeof(cmd_hdr_t) + START_ADDRESS_OFFSET;
+	cmdHdr->length = sizeof(cmd_hdr_t) + sizeof(read_status_reg_cmd_t);
 	cmdHdr->checksum = cmdHdrCalcChecksum(cmdHdr,cmdHdr->length);
 	
 	/* Store address pointer of control/status register */
 	cmdHdr->payload[0] = RTC_CTRL_STAT_ADDR;
+	return;
 }
 
+bool rtcUpdateCtrlReg(rtc_manager_t *rtcP)
+{
+	
+	/* Check if there's an ongoing command */
+	if(cmdProcCtrlRequestNewCmd())
+	{
+		return;
+	}
+	
+	/* Send command to set control register */
+	cmd_hdr_t *cmdHdr;
+	cmdHdr = bufferSetData(retrieveActiveBuffer(), sizeof(cmd_hdr_t) + sizeof(set_ctrl_reg_cmd_t));
+	cmdHdr->type = SET_CONTROL_REGS;
+	cmdHdr->length = sizeof(cmd_hdr_t) + sizeof(set_ctrl_reg_cmd_t);
+	cmdHdr->checksum = cmdHdrCalcChecksum(cmdHdr,cmdHdr->length);
+	
+	/* Store address pointer of control register */
+	cmdHdr->payload[0] = RTC_CTRL_ADDR;
+	cmdHdr->payload[1] = rtcP->ctrlReg;
+	return;
+}
 /* Sets the RTC time (sec, min, hr, day, date, month/century, year) */
 /* Note if unsuccessful, higher object must attempt to set it again */
 bool rtcSetTime(rtc_manager_t *rtcP, uint8_t *time)
@@ -186,17 +210,17 @@ bool rtcSetTime(rtc_manager_t *rtcP, uint8_t *time)
 	/* Request to send new command */
 	/* If cmdProc isn't ready, wait till next attempt to set RTC */
 	/* Otherwise we are ready to process a new command, so status is true */
-	//if(cmdProcCtrlRequestNewCmd())
-	//{
-		//return status;
-	//}
+	if(cmdProcCtrlRequestNewCmd())
+	{
+		return status;
+	}
 	status = true;
 	
 	/* Configure command header + payload */
 	cmd_hdr_t *cmdHdr;
-	cmdHdr = bufferSetData(retrieveActiveBuffer(), sizeof(cmd_hdr_t) + START_ADDRESS_OFFSET + TIME_UNITS_TOTAL);
+	cmdHdr = bufferSetData(retrieveActiveBuffer(), sizeof(cmd_hdr_t) + sizeof(set_curr_time_cmd_t));
 	cmdHdr->type = SET_CURRENT_TIME;
-	cmdHdr->length = sizeof(cmd_hdr_t) + START_ADDRESS_OFFSET + TIME_UNITS_TOTAL;
+	cmdHdr->length = sizeof(cmd_hdr_t) + sizeof(set_curr_time_cmd_t);
 	
 	/* Store address pointer of alarm 1 before the time */
 	cmdHdr->payload[0] = RTC_SEC_ADDR;
@@ -212,6 +236,18 @@ bool rtcSetTime(rtc_manager_t *rtcP, uint8_t *time)
 rtc_manager_t* retrieveActiveRTC(void)
 {
 	return &rtcMan;
+}
+
+/* Extract current status register from an rtc_manager_t object */
+uint8_t rtcGetSREG(rtc_manager_t *rtcP)
+{
+	return rtcP->ctrlSREG;
+}
+
+/* Update an rtc_manager_t's status register */ 
+void rtcUpdateSREG(rtc_manager_t *rtcP, uint8_t newSREG)
+{
+	rtcP->ctrlSREG = newSREG;
 }
 
 /************************************************************************/

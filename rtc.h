@@ -16,7 +16,7 @@
 #include "stdint.h"
 
 /************************************************************************/
-/*						Constants						                */
+/*							Constants						            */
 /************************************************************************/
 #define DIGITS_PER_TIME_UNIT	(0x02)
 
@@ -35,6 +35,16 @@ enum time_units_e
 	TIME_UNITS_TOTAL
 }; 
 
+enum days_e 
+{
+	MON = 0, 
+	TUES, 
+	WED, 
+	THURS, 
+	FRI, 
+	SAT, 
+	SUN
+};
 enum rtc_state_e {RTC_SET = 0, RTC_UNSET};
 
 /************************************************************************/
@@ -62,4 +72,7 @@ void rtcEnableA2Int(rtc_manager_t *rtcP);
 void rtcUpdateStatus(void);
 void rtcPoll(void);
 bool rtcSetTime(rtc_manager_t *rtcP, uint8_t *time);
+void rtcUpdateSREG(rtc_manager_t *rtcP, uint8_t newSREG);
+bool rtcUpdateCtrlReg();
+uint8_t rtcGetSREG(rtc_manager_t *rtcP);
 #endif /* RTC_H_ */
