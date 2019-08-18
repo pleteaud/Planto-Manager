@@ -9,36 +9,40 @@
 /*                     Includes/Constants                               */
 /************************************************************************/
 #include "alarm.h"
-#include "rtc.h"
 #include "stddef.h"
 #include "ds3231_regs_and_utils.h"
 #include "buffer.h"
 #include "cmd_structure.h"
 #include "cmd_proc.h"
 
-
-/* Maximums */
-#define MAX_TIME_DIGITS			(0x07)
-#define MAX_ALARM_TIME_UNITS	(0x04) //total time - MAX PAYLOAD SIZE - ALARM ADDRESS OFFSET - 1 CAUSE 0 COUNTS AS A UNIT (SECONDS) 
 #define TOTAL_ALARM1_REGISTERS	(0x04)
 #define TOTAL_ALARM2_REGISTERS	(0x03)
 
-/* Bit Manipulations */
-#define AxM1_FLAG_SHIFT         (0x1f)
-#define AxM2_FLAG_SHIFT         (0x17)
-#define AxM3_FLAG_SHIFT         (0x0f)
-#define AxM4_FLAG_SHIFT         (0x07)
-#define DY_DT_STATUS_BIT_OFFSET (0x01)
-#define DY_DT_STATUS_BIT_POS    (AxM4_FLAG_SHIFT - DY_DT_STATUS_BIT_OFFSET)
-#define AxF_STATUS_MASK			(0x01)
-#define A1F_STATUS_OFFSET		(0x00)
-#define A2F_STATUS_OFFSET		(0x01)
+#define ALARM_SET_MASK			(0x01)
+#define ALARM_SET_POS			(0x00)
+#define ALARM_SET_FLAG			(ALARM_SET_MASK << ALARM_SET_POS)
+
+#define A1_SET_MASK				(0x01)
+#define A1_SET_POS				(0x01)
+#define A1_SET_FLAG				(A1_SET_MASK << A1_SET_POS)
+
+#define A2_SET_MASK				(0x01)
+#define A2_SET_POS				(0x02)
+#define A2_SET_FLAG				(A2_SET_MASK << A2_SET_POS)
+
+#define ALARM_DY_SET_MASK		(0x01)
+#define ALARM_DY_SET_POS		(0x03)
+#define ALARM_DY_SET_FLAG		(ALARM_DY_SET_MASK << ALARM_DY_SET_POS)
+
+#define ALARM_DT_SET_MASK		(0x01)
+#define ALARM_DT_SET_POS		(0x04)
+#define ALARM_DT_SET_FLAG		(ALARM_DT_SET_MASK << ALARM_DT_SET_POS)
 
 /************************************************************************/
 /*                      Private Variables                               */
 /************************************************************************/
-static uint8_t alarmFlagStatus = 00;
-static bool alarmIntSet = false;
+static uint8_t axSet = 00;
+static uint8_t axIx = 00;
 
 /************************************************************************/
 /*                      Private Function Declaration                    */
@@ -46,8 +50,9 @@ static bool alarmIntSet = false;
 static void alarmInit(alarm_t *alarmP, uint8_t alarmPos);
 static void alarmCBInit(alarm_t *alarmP);
 static void alarmExecuteCB(alarm_t *alarmP);
-static void alarmCheck(alarm_t *alarmHandle, uint8_t hour, uint8_t minutes);
-static void configPayload(enum alarm_registers_e ax, uint8_t *time);
+static void alarmCheck(alarm_t *alarmP);
+static void configPayload(alarm_t *alarmP);
+static void configMatchingConditions(alarm_t *alarmP, uint32_t *timeBits, uint8_t setAlarm);
 static void insertTimeInPayload(uint32_t configTime, uint8_t *payload, uint8_t numTimeUnits);
 
 /************************************************************************/
@@ -65,41 +70,55 @@ void alarmsInit(alarm_t *listOfAlarms, uint8_t numberOfAlarms)
 
 /* Sets the day, hour, minutes, and seconds of an alarm */
 /* Note if unsuccessful, higher object must attempt to set it again */
-bool alarmSet(alarm_t *alarmP, enum days_e day, uint8_t hour, uint8_t minutes, uint8_t seconds)
+bool alarmSet(alarm_t *alarmP, uint8_t *time, enum dt_dy_flag_e dayDate)
 {
 	bool status = false;
+	for(int i = 0; i < MAX_ALARM_TIME_UNITS; i++)
+	{
+		alarmP->time[i] = *(time + i);
+	}
 	
-	alarmP->day = day;
-	alarmP->hours = hour;
-	alarmP->minutes = minutes;
-	alarmP->seconds = seconds;
-	alarmP->state = ALARM_UNSET;
+	/* Set alarm to unset */
+	alarmP->flag = alarmP->flag & ~ALARM_SET_FLAG;
 	
-	uint8_t time[MAX_ALARM_TIME_UNITS] = {seconds, minutes, hour, day};
+	/* Set Alarm flags */
+	if(dayDate == DAY)
+	{
+		 alarmP->flag |= ALARM_DY_SET_FLAG;
+	}
+	else if (dayDate == DATE)
+	{
+		 alarmP->flag |= ALARM_DT_SET_FLAG;
+	}
+	
 	/* Request to send new command */
-	/* If cmdProc isn't ready, wait till next attempt to set alarm */
-	//if(cmdProcCtrlRequestNewCmd())
-	//{
-		//return status;
-	//}
+	/* If cmdProc isn't ready, try again later */
+	if(cmdProcCtrlRequestNewCmd())
+	{
+		return status;
+	}
 	
 	/* Check for the next available alarm */
-	switch(alarmFlagStatus)
+	switch(axSet)
 	{	
 		case 0:
-		case 2:
+		case 4:
 		{
 			/* Program first alarm if either alarm registers are free {00}, or the first alarm is free {10}.*/
-			configPayload(ALARM1, time);
-			alarmFlagStatus |= AxF_STATUS_MASK << A1F_STATUS_OFFSET;
+			alarmP->flag |= A1_SET_FLAG | ALARM_SET_FLAG;
+			alarmP->matchFlag.a1MF = A1_MATCH_HR_MIN_SEC;
+			axSet |= A1_SET_FLAG;
+			configPayload(alarmP);
 			status = true;
 			break;
 		}
-		case 1:
+		case 2:
 		{
 			/* Program second alarm register */
-			configPayload(ALARM2, time);
-			alarmFlagStatus |= AxF_STATUS_MASK << A2F_STATUS_OFFSET;
+			alarmP->flag |= A2_SET_FLAG | ALARM_SET_FLAG;
+			alarmP->matchFlag.a2MF = A2_MATCH_HR_MIN;
+			axSet |= A2_SET_FLAG;
+			configPayload(alarmP);
 			status = true;
 			break;
 		}
@@ -127,46 +146,20 @@ void alarmSetCB(alarm_t *alarmP, void (*funcP)(void *objP), void *objP)
 /* In the case an alarm hasn't been set yet, it will ..... */
 void alarmsPoll(alarm_t *alarmList, uint8_t numAlarms)
 {
-	if (alarmIntSet)
+	/* Check if alarm 1 of DS3231 has been set */
+	if (rtcGetSREG(retrieveActiveRTC()) && A1I_FLAG)
 	{
-		//alarmIrqHandle(alarmIntSet);
-		return;
+		axIx |= A1I_FLAG; 
 	}
-	else
+	/* Check if alarm 2 of DS3231 has been set */
+	if (rtcGetSREG(retrieveActiveRTC()) && A2I_FLAG)
 	{
-		//alarmCheck(alarmList);	
+		axIx |= A2I_FLAG;
 	}
-	
-	
-}
-
-/* Set alarm interrupt flag */
-void alarmInterruptSet(void)
-{
-	alarmIntSet = true;
-}
-
-/* Handles an alarm interrupt by requ ...*/ 
-void alarmIrqHandle(alarm_t *alarmList, uint8_t numAlarms)
-{
-	/* Request to send new command */
-	/* If cmdProc isn't ready, don't unset alarmInterruptSet flag to retry again */
-	if(cmdProcCtrlRequestNewCmd())
+	for (int i = 0; i < numAlarms; i++)
 	{
-		return;
+		alarmCheck((alarmList + i));
 	}
-	cmd_hdr_t *cmdHdr;
-	cmdHdr = bufferSetData(retrieveActiveBuffer(), sizeof(cmd_hdr_t) + START_ADDRESS_OFFSET);
-	cmdHdr->type = READ_STATUS_REGS;
-	cmdHdr->length = sizeof(cmd_hdr_t) + START_ADDRESS_OFFSET;
-	cmdHdr->checksum = cmdHdrCalcChecksum(cmdHdr,cmdHdr->length);
-	
-	//read/repeated start
-	// use I2C to extract status registers.
-	// check which alarm is on by checking A2F/A1F status (bits 1 and 2)
-	// if A1F is on, check address x07 to x09
-	// if A2F is on, check address x0Bh to xCh
-	// invoke alarmsCheck() to then determine which alarm was on.
 }
 
 
@@ -177,10 +170,7 @@ void alarmIrqHandle(alarm_t *alarmList, uint8_t numAlarms)
 /* Initializes an alarm object */
 static void alarmInit(alarm_t *alarmP, uint8_t alarmPos)
 {
-	alarmP->hours = 0;
-	alarmP->minutes = 0;
-	alarmP->state = ALARM_UNSET;
-	alarmP->alarmPos = alarmPos;
+	alarmP->flag = alarmP->flag & ~A1_SET_FLAG & ~A2_SET_FLAG;
 	/* Initialize Call back structures to NULL to guarantee no function or obj is attached it. */
 	alarmCBInit(alarmP);
 }
@@ -199,46 +189,44 @@ static void alarmExecuteCB(alarm_t* alarmP)
 }
 
 /* .... */
-static void alarmCheck(alarm_t *alarmP, uint8_t hour, uint8_t minutes)
+static void alarmCheck(alarm_t *alarmP)
 {
-	/* First check if specified alarm was configured/set. If not use the time stored in alarmP to invoke config payload */
-	if (alarmP->state == ALARM_UNSET)
+	if((alarmP->flag & axIx) == A1I_FLAG)
 	{
-		alarmSet(alarmP, alarmP->day, alarmP->hours, alarmP->minutes, alarmP->seconds);
-		return;
-	}
-	if( (alarmP->hours == hour) && (alarmP->minutes == minutes))
-	{
+		/* Execute callback and clear interrupt */
 		alarmExecuteCB(alarmP);
-		alarmP->state = ALARM_UNSET;
+		alarmP->flag = alarmP->flag & ~A1_SET_FLAG;
+		axIx = (axIx & ~A1I_FLAG);
+	}
+	else if ((alarmP->flag & axIx) == A2I_FLAG)
+	{
+		/* Execute callback and clear interrupt */
+		alarmExecuteCB(alarmP);
+		alarmP->flag = alarmP->flag & ~A2_SET_FLAG;
+		axIx = (axIx & ~A2I_FLAG);
 	}
 }
 
 /* Configure the command payload for setting the alarm time in DS3231 device */
-static void configPayload(enum alarm_registers_e alarmReg, uint8_t *time)
+static void configPayload(alarm_t *alarmP)
 {
 	uint32_t timebits = 0;
-	
-	/* If a day is specified, set DT/DY register to match with day of week */
-	if (time[3] != NONE)
-	{
-		timebits |= 1 << AxM4_FLAG_SHIFT;
-		timebits |= 1 << DY_DT_STATUS_BIT_POS;
-	}
-
-	timebits |= configTime(time, MAX_ALARM_TIME_UNITS, DIGITS_PER_TIME_UNIT);
-	
-	
 	/* Set up temporary cmd header to send to send to cmdPoll */
 	cmd_hdr_t *cmdHdr;
-	if(alarmReg == ALARM1)
+	if(alarmP->flag & A1_SET_FLAG)
 	{
-		cmdHdr = bufferSetData(retrieveActiveBuffer(), sizeof(cmd_hdr_t) + START_ADDRESS_OFFSET + TOTAL_ALARM1_REGISTERS);
+		cmdHdr = bufferSetData(retrieveActiveBuffer(), sizeof(cmd_hdr_t) + sizeof(set_alarm1_time_cmd_t));
 		cmdHdr->type = SET_ALARM1_TIME;
-		cmdHdr->length = sizeof(cmd_hdr_t) + START_ADDRESS_OFFSET + TOTAL_ALARM1_REGISTERS;
+		cmdHdr->length = sizeof(cmd_hdr_t) + sizeof(set_alarm1_time_cmd_t);
 		
 		/* Store address pointer of alarm 1 before the time */
 		cmdHdr->payload[0] = A1_SEC_ADDR;
+		
+		/* Config time bits */
+		configMatchingConditions(alarmP, &timebits, A1_SET_FLAG);
+		timebits |= configTime(alarmP->time, MAX_ALARM_TIME_UNITS, DIGITS_PER_TIME_UNIT);
+		
+		/* Load time into cmd payload */
 		insertTimeInPayload(timebits,cmdHdr->payload + START_ADDRESS_OFFSET, TOTAL_ALARM1_REGISTERS);
 		
 		/* Calculate Checksum */	
@@ -248,12 +236,18 @@ static void configPayload(enum alarm_registers_e alarmReg, uint8_t *time)
 	else
 	{
 		/* Configure command specifications */
-		cmdHdr = bufferSetData(retrieveActiveBuffer(), sizeof(cmd_hdr_t) + START_ADDRESS_OFFSET + TOTAL_ALARM2_REGISTERS);
+		cmdHdr = bufferSetData(retrieveActiveBuffer(), sizeof(cmd_hdr_t) + sizeof(set_alarm2_time_cmd_t));
 		cmdHdr->type = SET_ALARM2_TIME;
-		cmdHdr->length = sizeof(cmd_hdr_t) + START_ADDRESS_OFFSET + TOTAL_ALARM2_REGISTERS;
+		cmdHdr->length = sizeof(cmd_hdr_t) + sizeof(set_alarm2_time_cmd_t);
 		
 		/* Store address pointer of alarm 2 before the time */
 		cmdHdr->payload[0] = A2_MIN_ADDR;
+		
+		/* Config time bits */
+		configMatchingConditions(alarmP, &timebits, A2_SET_FLAG);
+		timebits |= configTime(alarmP->time, MAX_ALARM_TIME_UNITS, DIGITS_PER_TIME_UNIT);
+		
+		/* Load time into cmd payload */
 		insertTimeInPayload(timebits, cmdHdr->payload + START_ADDRESS_OFFSET, TOTAL_ALARM2_REGISTERS);
 		
 		/* Calculate Checksum */
@@ -269,6 +263,88 @@ static void insertTimeInPayload(uint32_t configTime, uint8_t *payload, uint8_t n
 	{
 		*(payload + i) = configTime >> bitOffSet; // sec/min/hour/day
 		bitOffSet -= BYTE_SHIFT;		
+	}
+}
+/* configure the matching condition bits in the outgoing payload */ // change comment a bit idk 
+static void configMatchingConditions(alarm_t *alarmP, uint32_t *timeBits, uint8_t setAlarm)
+{
+	/* Configure alarm to only go off when hours, minutes and seconds match */
+	
+	if(setAlarm == A1_SET_FLAG)
+	{
+		if (((alarmP->flag & ALARM_DY_SET_FLAG) | (alarmP->flag & ALARM_DT_SET_FLAG)) != NONE)
+		{
+			alarmP->matchFlag.a1MF = A1_MATCH_DY_HR_MIN_SEC;	
+		}
+		
+		switch(alarmP->matchFlag.a1MF)
+		{
+			case A1_MATCH_ONCE_PER_SEC:
+			{
+				*timeBits |= getAxMxFlag(AxM1_FLAG_SCALOR) | getAxMxFlag(AxM2_FLAG_SCALOR) | getAxMxFlag(AxM3_FLAG_SCALOR) | getAxMxFlag(AxM4_FLAG_SCALOR);	
+				break;
+			}
+			case A1_MATCH_SEC:
+			{
+				*timeBits |= getAxMxFlag(AxM2_FLAG_SCALOR) | getAxMxFlag(AxM3_FLAG_SCALOR) | getAxMxFlag(AxM4_FLAG_SCALOR);
+				break;
+			}
+			case A1_MATCH_MIN_SEC:
+			{
+				*timeBits |= getAxMxFlag(AxM3_FLAG_SCALOR) | getAxMxFlag(AxM4_FLAG_SCALOR);
+				break;
+			}
+			case A1_MATCH_HR_MIN_SEC:
+			{
+				*timeBits |= getAxMxFlag(AxM4_FLAG_SCALOR);
+				break;
+			}
+			case A1_MATCH_DY_HR_MIN_SEC:
+			{
+				*timeBits |= DY_DT_FLAG;
+				break;
+			}
+			case A1_MATCH_DT_HR_MIN_SEC:
+			{
+				*timeBits = (*timeBits & ~DY_DT_FLAG);
+				break;
+			}
+		}
+	}
+	else
+	{
+		if (((alarmP->flag & ALARM_DY_SET_FLAG) | (alarmP->flag & ALARM_DT_SET_FLAG)) != NONE)
+		{
+			alarmP->matchFlag.a2MF = A2_MATCH_DY_HR_MIN;
+		}
+		switch(alarmP->matchFlag.a2MF)
+		{
+			case A2_MATCH_ONCE_PER_MIN:
+			{
+				*timeBits |= getAxMxFlag(AxM2_FLAG_SCALOR) | getAxMxFlag(AxM3_FLAG_SCALOR) | getAxMxFlag(AxM4_FLAG_SCALOR);
+				break;
+			}
+			case A2_MATCH_MIN:
+			{
+				*timeBits |= getAxMxFlag(AxM3_FLAG_SCALOR) | getAxMxFlag(AxM4_FLAG_SCALOR);
+				break;
+			}
+			case A2_MATCH_HR_MIN:
+			{
+				*timeBits |= getAxMxFlag(AxM4_FLAG_SCALOR);
+				break;
+			}
+			case A2_MATCH_DY_HR_MIN:
+			{
+				*timeBits |= DY_DT_FLAG;
+				break;
+			}
+			case A2_MATCH_DT_HR_MIN:
+			{
+				*timeBits = (*timeBits & ~DY_DT_FLAG);
+				break;
+			}
+		}
 	}
 }
 
