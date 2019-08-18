@@ -13,13 +13,39 @@
 /************************************************************************/
 #include "stdint.h"
 #include "stdbool.h"
+#include "rtc.h"
+
+/************************************************************************/
+/*							Constants						            */
+/************************************************************************/
+#define MAX_ALARM_TIME_UNITS	(TIME_UNITS_TOTAL-TIME_UNITS_DY)	 //Sec, Min, Hours, Day/Date
 
 /************************************************************************/
 /*							Enums Definition		 	                */
 /************************************************************************/
-enum alarm_state_e {ALARM_SET = 0, ALARM_UNSET};
-enum alarm_registers_e {ALARM1 = 0, ALARM2};
-enum days_e {NONE = 0, MON, TUES, WED, THURS, FRI, SAT, SUN};
+enum { ALARM_UNSET = 0, ALARM_SET };
+enum dt_dy_flag_e { NONE = 0, DATE, DAY};
+
+enum a1_match_option_e
+{
+	A1_MATCH_ONCE_PER_SEC = 0,
+	A1_MATCH_SEC,
+	A1_MATCH_MIN_SEC,
+	A1_MATCH_HR_MIN_SEC,
+	A1_MATCH_DT_HR_MIN_SEC,
+	A1_MATCH_DY_HR_MIN_SEC
+};
+
+enum a2_match_option_e
+{
+	A2_MATCH_ONCE_PER_MIN = 0,
+	A2_MATCH_MIN,
+	A2_MATCH_HR_MIN,
+	A2_MATCH_DT_HR_MIN,
+	A2_MATCH_DY_HR_MIN
+};
+
+
 
 /************************************************************************/
 /*				Type Defs + Struct Definition							*/
@@ -30,22 +56,25 @@ typedef struct alarm_callback_s
 	void (*alarmOnCB)(void *objP);
 } alarm_callback_t;
 
+union alarm_match_u
+{
+	enum a1_match_option_e a1MF;
+	enum a2_match_option_e a2MF;
+};
+
 typedef struct alarm_s
 {
-	enum days_e day;
-	uint8_t hours;
-	uint8_t minutes;
-	uint8_t seconds;
-	enum alarm_state_e state;
+	uint8_t time[MAX_ALARM_TIME_UNITS];
+	union alarm_match_u matchFlag;
+	uint8_t flag;
 	alarm_callback_t alarmCB;
-	uint8_t alarmPos;
 } alarm_t;
 
 /************************************************************************/
 /*							Public Interfaces    	                    */
 /************************************************************************/
 void alarmsInit(alarm_t *alarmP, uint8_t numAlarms);
-bool alarmSet(alarm_t *alarmP, enum days_e day, uint8_t hour, uint8_t minutes, uint8_t seconds);
+bool alarmSet(alarm_t *alarmP, uint8_t *time, enum dt_dy_flag_e dayDate);
 void alarmSetCB(alarm_t *alarmP, void (*funcP)(void *objP), void *objP);
 void alarmsPoll(alarm_t *alarmList, uint8_t numAlarms);
 void alarmIrqHandle(alarm_t *alarmList, uint8_t numAlarms);
