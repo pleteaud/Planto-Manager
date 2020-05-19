@@ -1,0 +1,194 @@
+format_version: '2'
+name: My Project
+versions:
+  api: '1.0'
+  backend: 1.7.303
+  commit: 1e07622763d149970fd8808a8f12ff3b1e84e0d7
+  content: unknown
+  content_pack_name: unknown
+  format: '2'
+  frontend: 1.7.303
+  packs_version_avr8: 1.0.1410
+  packs_version_qtouch: unknown
+  packs_version_sam: 1.0.1554
+  version_backend: 1.7.303
+  version_frontend: ''
+board:
+  identifier: CustomBoard
+  device: ATmega328P-AU
+details: null
+application: null
+middlewares: {}
+drivers:
+  CPU:
+    user_label: CPU
+    definition: 'Atmel:ATMega48_88_168_328_drivers:1.0.0::ATmega328P-AU::CPU::driver_config_definition::SYSCTRL::Drivers:SYSCTRL:'
+    functionality: System
+    api: 'Drivers:SYSCTRL:'
+    configuration:
+      async_input_speed: 32768
+      clkadc_oscillator: Input clock
+      clkasy_oscillator: Async input clock
+      clkcpu_oscillator: Input clock
+      clkio_oscillator: Input clock
+      clkptc_oscillator: Input clock
+      cpu_clock_source: CLKcpu
+      cpu_sreg_i: true
+      enable_async_input: true
+      enable_clkadc: true
+      enable_clkasy: true
+      enable_clkcpu: true
+      enable_clkio: true
+      enable_clkptc: true
+      enable_core_clock: true
+      enable_input: true
+      input_speed: 8000000
+      pm_ivsel: Interrupt vector placed at the beginning of main FLASH memory
+      pm_pud: false
+      pm_se: false
+      pm_sm: Idle
+      prescaler_divider: '1'
+    optional_signals: []
+    variant: null
+    clocks:
+      domain_group:
+        nodes:
+        - name: Core
+          input: Core
+          external: false
+          external_frequency: 0
+        configuration: {}
+  ADC_0:
+    user_label: ADC_0
+    definition: Atmel:ATMega48_88_168_328_drivers:1.0.0::ATmega328P-AU::ADC::driver_config_definition::ADC.Basic::Drivers:ADC:Basic
+    functionality: ADC
+    api: Drivers:ADC:Basic
+    configuration:
+      adcsra_adate: false
+      adcsra_aden: true
+      adcsra_adie: true
+      adcsra_adps: '2'
+      adcsrb_acme: false
+      adcsrb_adts: Free Running mode
+      admux_adlar: false
+      admux_mux: ADC Single Ended Input pin 0
+      admux_refs: AVCC with external capacitor at AREF pin
+    optional_signals:
+    - identifier: ADC_0:ADC/0
+      pad: PC0
+      mode: Enabled
+      configuration: null
+      definition: Atmel:ATMega48_88_168_328_drivers:1.0.0::ATmega328P-AU::optional_signal_definition::ADC.ADC.0
+      name: ADC/ADC/0
+      label: ADC/0
+    variant: null
+    clocks:
+      domain_group:
+        nodes:
+        - name: ADC
+          input: CLKadc
+          external: false
+          external_frequency: 0
+        configuration:
+          adc_clock_source: CLKadc
+  I2C_0:
+    user_label: I2C_0
+    definition: Atmel:ATMega48_88_168_328_drivers:1.0.0::ATmega328P-AU::TWI::driver_config_definition::Interrupt::Drivers:I2C:Master
+    functionality: I2C
+    api: Drivers:I2C:Master
+    configuration:
+      twi_bit_rate: 100000
+      twi_twcr_twea: false
+      twi_twcr_twen: true
+      twi_twcr_twie: true
+    optional_signals:
+    - identifier: I2C_0:SCL
+      pad: PC5
+      mode: Enabled
+      configuration: null
+      definition: Atmel:ATMega48_88_168_328_drivers:1.0.0::ATmega328P-AU::optional_signal_definition::TWI.SCL
+      name: TWI/SCL
+      label: SCL
+    - identifier: I2C_0:SDA
+      pad: PC4
+      mode: Enabled
+      configuration: null
+      definition: Atmel:ATMega48_88_168_328_drivers:1.0.0::ATmega328P-AU::optional_signal_definition::TWI.SDA
+      name: TWI/SDA
+      label: SDA
+    variant: null
+    clocks:
+      domain_group: null
+  TIMER_0:
+    user_label: TIMER_0
+    definition: Atmel:ATMega48_88_168_328_drivers:1.0.0::ATmega328P-AU::TC1::driver_config_definition::TC16.Mode.0.Normal::Drivers:TC16:Init
+    functionality: Timer
+    api: Drivers:TC16:Init
+    configuration:
+      inc_isr_harness: true
+      tc16_coma: Normal port operation, OCA disconnected
+      tc16_comb: Normal port operation, OCB disconnected
+      tc16_cs: No prescaling
+      tc16_ices: Falling edge will trigger input capture
+      tc16_icie: true
+      tc16_icnc: false
+      tc16_icr: 0
+      tc16_ociea: false
+      tc16_ocieb: false
+      tc16_orca: 0
+      tc16_orcb: 0
+      tc16_psrasy: false
+      tc16_psrsync: false
+      tc16_toie: false
+      tc16_tsm: false
+    optional_signals:
+    - identifier: TIMER_0:ICP
+      pad: PB0
+      mode: Enabled
+      configuration: null
+      definition: Atmel:ATMega48_88_168_328_drivers:1.0.0::ATmega328P-AU::optional_signal_definition::TC1.ICP
+      name: TC1/ICP
+      label: ICP
+    variant: null
+    clocks:
+      domain_group:
+        nodes:
+        - name: TC16
+          input: CLKio
+          external: false
+          external_frequency: 0
+        configuration:
+          tc16_clock_source: CLKio
+pads:
+  PB0:
+    name: PB0
+    definition: Atmel:ATMega48_88_168_328_drivers:1.0.0::ATmega328P-AU::pad::PB0
+    mode: Digital output
+    user_label: PB0
+    configuration: null
+  PC0:
+    name: PC0
+    definition: Atmel:ATMega48_88_168_328_drivers:1.0.0::ATmega328P-AU::pad::PC0
+    mode: Analog
+    user_label: PC0
+    configuration: null
+  PC4:
+    name: PC4
+    definition: Atmel:ATMega48_88_168_328_drivers:1.0.0::ATmega328P-AU::pad::PC4
+    mode: Advanced
+    user_label: PC4
+    configuration: null
+  PC5:
+    name: PC5
+    definition: Atmel:ATMega48_88_168_328_drivers:1.0.0::ATmega328P-AU::pad::PC5
+    mode: Advanced
+    user_label: PC5
+    configuration: null
+toolchain_options:
+- definition:
+    identifier: Atmel:ATMega48_88_168_328_drivers:1.0.0::ATmega328P-AU::environment_definition::All:Atmel.Studio:7.0.0
+  configuration:
+    compiler_config:
+      avrgcc_compiler_miscellaneous_OtherFlags: -std=gnu99
+    linker_config:
+      avrgcc_linker_miscellaneous_LinkerFlags: ''
