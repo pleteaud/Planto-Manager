@@ -23,9 +23,6 @@ enum moisture_sensor_state
 typedef struct moisture_sensor_s
 {
 	uint8_t adcChannel;
-	uint8_t pinNum;
-	uint8_t ddrx;
-	uint8_t portx;
 	enum moisture_sensor_state state; 
 	double moisture;
 	uint8_t sampleNum;
@@ -35,5 +32,5 @@ typedef struct moisture_sensor_s
 void msInit(moisture_sensor_t *sensorP,uint8_t chann);
 bool readMoisture(moisture_sensor_t *sensorP);
 double msGetMoisture(moisture_sensor_t *sensorP);
-void powerSensor();
+void powerSensor(bool relayState);
 #endif /* MOISTURE_SENSOR_H_ */

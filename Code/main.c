@@ -12,24 +12,25 @@ int main(void)
 	
 	int8_t temperature = 0;
 	int8_t humidity = 0;
-	double moisture;
+	volatile double moisture;
 	/* Delay a few seconds to allow dht11 to stablelize */
-	//milli_delay(4000); 
-	//dht11Init(&rSensor,6);
-	msInit(&ms,0);
+	milli_delay(4000); 
+	dht11Init(&rSensor,6);
+	//msInit(&ms,0);
+	//powerSensor(true);
 	while (1)
 	{
-		//if(dht11Poll(&rSensor))
-		//{
-			//DDRB |= 1<<PINB4;
-			//PORTB = 1 << PINB4; //Turns ON All LEDs
-			///* Delay for 2000 to allow next read */
-			////milli_delay(500);
-		//}
-		if (readMoisture(&ms))
+		if(dht11ReadTempRH(&rSensor))
 		{
-			moisture = msGetMoisture(&ms); 
+			DDRB |= 1<<PINB4;
+			PORTB = 1 << PINB4; //Turns ON All LEDs
+			/* Delay for 2000 to allow next read */
+			//milli_delay(500);
 		}
+		//if (readMoisture(&ms))
+		//{
+			//moisture = msGetMoisture(&ms); 
+		//}
 	}
 }
 

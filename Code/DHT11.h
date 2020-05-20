@@ -13,6 +13,7 @@
 /*							Includes				 	                */
 /************************************************************************/
 #include "stdint.h"
+#include "stdbool.h"
 #include "timer.h"
 
 /************************************************************************/
@@ -55,5 +56,5 @@ typedef struct dht11_sensor_s
 void dht11Init(dht11_sensor_t *sensorP, uint8_t pinNum);
 uint8_t dht11GetTemp(dht11_sensor_t *sensorP);
 uint8_t dht11GetRH(dht11_sensor_t *sensorP);
-uint8_t dht11Poll(dht11_sensor_t *sensorP);
+bool dht11ReadTempRH(dht11_sensor_t *sensorP);
 #endif /* DHT11_H_ */

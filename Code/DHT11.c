@@ -27,6 +27,7 @@
 /*                      Private Function Declaration                    */
 /************************************************************************/
 static int8_t getdata(uint8_t *temperature, uint8_t *humidity, uint8_t pinNum);
+static bool dht11Poll(dht11_sensor_t *sensorP);
 
 /************************************************************************/
 /*                      Public Functions Implementations                */
@@ -40,21 +41,38 @@ void dht11Init(dht11_sensor_t *sensorP, uint8_t pinNum)
 	sensorP->state = DHT11_IDLE;
 }
 
-uint8_t dht11Poll(dht11_sensor_t *sensorP)
+uint8_t dht11GetTemp(dht11_sensor_t *sensorP)
 {
-	uint8_t status = 0;
+	return sensorP->temperature;
+}
+
+uint8_t dht11GetRH(dht11_sensor_t *sensorP)
+{
+	return sensorP->humidity;
+}
+bool dht11ReadTempRH(dht11_sensor_t *sensorP)
+{
+	return dht11Poll(sensorP);
+}
+/************************************************************************/
+/*                     Private Functions Implementation                 */
+/************************************************************************/
+static bool dht11Poll(dht11_sensor_t *sensorP)
+{
+	bool status = false;
 	switch(sensorP->state)
 	{
 		/* Initiate poll */
 		/* Idle: DHT11 can initiate a sensor read */
 		case DHT11_IDLE:
 		{
+			/* Debugging purposes */
 			DDRB |= 0x00;
 			PORTB = 0x00;
 			/* Change state to read since, we are not cooling down nor are we idle anymore */
 			sensorP->state = DHT11_READ;
 			/* Reset pin to output high */
-			DHT_DDR |= (1<<sensorP->pin); 
+			DHT_DDR |= (1<<sensorP->pin);
 			DHT_PORT |= (1<<sensorP->pin);
 			
 			/* Reset timer, and wait 100ms before sending start signal to allow dht11 to sync to pin*/
@@ -69,14 +87,14 @@ uint8_t dht11Poll(dht11_sensor_t *sensorP)
 			if (getMillis()-0 >= 100)
 			{
 				stopMillisTimer();
-				status = 1;
+				status = true;
 				enum comm_status_e rxStatus = getdata(&sensorP->temperature,&sensorP->humidity,sensorP->pin);
 				/* If read wasn't successful, log error */
 				if (rxStatus != READ_SUCCESS)
 				{
 					sensorP->errorList[sensorP->errorCounter++]= rxStatus;
-					status = 0;
-				}		
+					status = false;
+				}
 				
 				/* Start timer for 2 second cool down */
 				sensorP->state = DHT11_COOLDOWN;
@@ -101,18 +119,6 @@ uint8_t dht11Poll(dht11_sensor_t *sensorP)
 	return status;
 }
 
-uint8_t dht11GetTemp(dht11_sensor_t *sensorP)
-{
-	return sensorP->temperature;
-}
-
-uint8_t dht11GetRH(dht11_sensor_t *sensorP)
-{
-	return sensorP->humidity;
-}
-/************************************************************************/
-/*                     Private Functions Implementation                 */
-/************************************************************************/
 static int8_t getdata(uint8_t *temperature, uint8_t *humidity, uint8_t pinNum)
 {
 	/* Check if DHT is still cooling down from previous sample */

@@ -3,26 +3,53 @@
  *
  * Created: 5/17/2020 6:07:41 PM
  *  Author: plete
- */ 
+ */
+
+/************************************************************************/
+/*                     Includes/Constants/Globals                       */
+/************************************************************************/ 
 #include "Moisture_Sensor.h"
 #include "adc_basic.h"
 
-void powerSensor();
-static bool poll(moisture_sensor_t *sensorP);
+
+/* Setup relay port */
+#define RELAY_DDR	DDRB
+#define RELAY_PORT PORTB
+#define RELAY_OUTOUT_PIN PB1
 
 static uint8_t sampleFlag = 0;
+/************************************************************************/
+/*                      Private Function Declaration                    */
+/************************************************************************/
 
+static bool poll(moisture_sensor_t *sensorP);
+static adc_irq_cb_t adcReadCompCB();
 
-
-adc_irq_cb_t adcReadCompCB()
+/************************************************************************/
+/*                      Public Functions Implementations                */
+/************************************************************************/
+void powerSensor(bool relayState)
 {
-	sampleFlag = 1;
+	if(relayState)
+	{
+		/* Send turn on relay to power sensors */
+		RELAY_PORT |= (1<< RELAY_OUTOUT_PIN);
+	}
+	else
+	{
+		/* Send turn on relay to power sensors */
+		RELAY_PORT &= ~(1<< RELAY_OUTOUT_PIN);
+	}	
 }
 void msInit(moisture_sensor_t *sensorP,uint8_t chann)
 {
 	sensorP->adcChannel = chann;
 	sensorP->state = MS_IDLE;
 	sensorP->sampleNum = sensorP->timeStamp = 0;
+	/* Configure pin DDRx as output low for relay control */
+	RELAY_DDR |= (1 << RELAY_OUTOUT_PIN);
+	powerSensor(false);
+	/* Register callback for ADC sensor reading completion */
 	ADC_0_register_callback(adcReadCompCB);
 }
 bool readMoisture(moisture_sensor_t *sensorP)
@@ -34,6 +61,11 @@ double msGetMoisture(moisture_sensor_t *sensorP)
 	return sensorP->moisture;
 }
 
+
+
+/************************************************************************/
+/*                     Private Functions Implementation                 */
+/************************************************************************/
 static bool poll(moisture_sensor_t *sensorP)
 {
 	bool status = false;
@@ -41,8 +73,6 @@ static bool poll(moisture_sensor_t *sensorP)
 	{
 		case MS_IDLE:
 		{
-			/* Turn on Relay to power moisture sensor */
-			//powerSensor(sensorP->pinNum,sensorP->ddrx, sensorP->portx);
 			/* Enable ADC */
 			ADC_0_enable();
 			/* Wait 5 ms to allow sensor to stabilize */
@@ -60,6 +90,7 @@ static bool poll(moisture_sensor_t *sensorP)
 				/* Initiate an ADC Conversion */
 				ADC_0_start_conversion(sensorP->adcChannel);
 				/* Begin reading */
+				sensorP->moisture = 0;
 				sensorP->state = MS_READ;
 			}
 			break;
@@ -82,6 +113,8 @@ static bool poll(moisture_sensor_t *sensorP)
 				{
 					/* Disable ADC*/
 					ADC_0_disable();
+					/* Restart ADC value */
+					sensorP->sampleNum = 0;
 					sensorP->state = MS_READ_COMPLETE;
 					break;
 				}
@@ -99,10 +132,19 @@ static bool poll(moisture_sensor_t *sensorP)
 			sensorP->moisture /= 5;
 			/* Moisture of plant = moisture_read/moisture_fully_wet */
 			status = true;
+			/* Stop timer and reset timer */
+			stopMillisTimer();
+			sensorP->timeStamp=0;
+			/* Change state back to IDLE. If a new reading needs to be done process will start again */
+			sensorP->state = MS_IDLE;
 			break;
 		}
 		default:
 		break;
 	}
 	return status;
+}
+static adc_irq_cb_t adcReadCompCB()
+{
+	sampleFlag = 1;
 }
