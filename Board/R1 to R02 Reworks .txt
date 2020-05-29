@@ -1,0 +1,6 @@
+-Changed square wave frequency to 6.67kHz because the gain bandwidth product and slew rate of the lm358 is .8MHz and .4V/us for single channel or .7MHz and.3V/us for double channel.
+-Changed R1 to 3.3k, R9 to 3.3k, R2 to 3.3k, R3 to 10k
+-Changed C3 to 10nF
+-Changed R4 to 750k
+-Added a linear dedicated input to second channel of lm358 as that is the best practice to connect unused pins.
+	o Made voltage divider with R10 = 1M, R8 = 1M 
