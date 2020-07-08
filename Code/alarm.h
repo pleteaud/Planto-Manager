@@ -2,22 +2,19 @@
  * alarm.h
  *
  * Created: 6/29/2019 8:53:50 PM
- *  Author: plete
+ *  Author: Davo Pleteau
  */ 
 
 #ifndef ALARM_H_
 #define ALARM_H_
 
 /************************************************************************/
-/*							Includes				 	                */
+/*							Includes/Constants	 	                */
 /************************************************************************/
 #include "stdint.h"
 #include "stdbool.h"
 #include "rtc.h"
 
-/************************************************************************/
-/*							Constants						            */
-/************************************************************************/
 #define MAX_ALARM_TIME_UNITS	(TIME_UNITS_TOTAL-TIME_UNITS_DY)	 //Sec, Min, Hours, Day/Date
 
 /************************************************************************/
@@ -45,22 +42,20 @@ enum a2_match_option_e
 	A2_MATCH_DY_HR_MIN
 };
 
-
+union alarm_match_u
+{
+	enum a1_match_option_e a1MF;
+	enum a2_match_option_e a2MF;
+};
 
 /************************************************************************/
-/*				Type Defs + Struct Definition							*/
+/*							Struct Definition							*/
 /************************************************************************/
 typedef struct alarm_callback_s
 {
 	void *objP;
 	void (*alarmOnCB)(void *objP);
 } alarm_callback_t;
-
-union alarm_match_u
-{
-	enum a1_match_option_e a1MF;
-	enum a2_match_option_e a2MF;
-};
 
 typedef struct alarm_s
 {

@@ -2,7 +2,7 @@
  * DHT11.h
  *
  * Created: 3/25/2020 3:17:18 PM
- *  Author: plete
+ *  Author: Davo Pleteau
  */ 
 
 
@@ -10,15 +10,12 @@
 #define DHT11_H_
 
 /************************************************************************/
-/*							Includes				 	                */
+/*							Includes + Constants	 	                */
 /************************************************************************/
 #include "stdint.h"
 #include "stdbool.h"
 #include "timer.h"
 
-/************************************************************************/
-/*							Constants						            */
-/************************************************************************/
 #define ERROR_LIST_SIZE 100
 
 /************************************************************************/
@@ -30,13 +27,14 @@ enum dht11_states_e
 	DHT11_READ,
 	DHT11_COOLDOWN
 };
-enum comm_status_e
+typedef enum comm_status_e 
 {
 	READ_SUCCESS = 0,
 	NO_RESPONSE_ERROR,
 	TIME_OUT_ERROR,
 	BAD_CHECKSUM_ERROR,
-};
+} comm_status_t;
+
 /************************************************************************/
 /*				Type Defs + Struct Definition							*/
 /************************************************************************/

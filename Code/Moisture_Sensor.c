@@ -2,7 +2,7 @@
  * Moisture_Sensor.c
  *
  * Created: 5/17/2020 6:07:41 PM
- *  Author: plete
+ *  Author: Davo Pleteau
  */
 
 /************************************************************************/
@@ -22,13 +22,15 @@ static uint8_t sampleFlag = 0;
 /*                      Private Function Declaration                    */
 /************************************************************************/
 
-static bool poll(moisture_sensor_t *sensorP);
+static bool poll(soil_moisture_sensor_t *sensorP);
 static adc_irq_cb_t adcReadCompCB();
 
 /************************************************************************/
 /*                      Public Functions Implementations                */
 /************************************************************************/
-void powerSensor(bool relayState)
+
+/* Turn on Relay to power moisture sensor */
+void sensorPower(bool relayState)
 {
 	if(relayState)
 	{
@@ -41,22 +43,30 @@ void powerSensor(bool relayState)
 		RELAY_PORT &= ~(1<< RELAY_OUTOUT_PIN);
 	}	
 }
-void msInit(moisture_sensor_t *sensorP,uint8_t chann)
+
+/* Initialize moisture sensor object's data members */
+void sensorInit(soil_moisture_sensor_t *sensorP,uint8_t chann)
 {
 	sensorP->adcChannel = chann;
 	sensorP->state = MS_IDLE;
 	sensorP->sampleNum = sensorP->timeStamp = 0;
 	/* Configure pin DDRx as output low for relay control */
 	RELAY_DDR |= (1 << RELAY_OUTOUT_PIN);
-	powerSensor(false);
+	sensorPower(false);
 	/* Register callback for ADC sensor reading completion */
 	ADC_0_register_callback(adcReadCompCB);
 }
-bool readMoisture(moisture_sensor_t *sensorP)
+
+/* Initiate a moisture sensor read */
+/* If return is false, reading procedure isn't complete*/
+/* If true, the sensor's moisture value is updated */
+bool sensorRead(soil_moisture_sensor_t *sensorP)
 {
 	return poll(sensorP);
 }
-double msGetMoisture(moisture_sensor_t *sensorP)
+
+/* Retrieve sensor's soil moisure reading */
+double sensorGet(soil_moisture_sensor_t *sensorP)
 {
 	return sensorP->moisture;
 }
@@ -66,7 +76,11 @@ double msGetMoisture(moisture_sensor_t *sensorP)
 /************************************************************************/
 /*                     Private Functions Implementation                 */
 /************************************************************************/
-static bool poll(moisture_sensor_t *sensorP)
+
+/* Control and monitor communication procedure between chip and DHT11 */
+/* If return is false, reading procedure isn't complete*/
+/* If true, the sensor's moisture value is updated */
+static bool poll(soil_moisture_sensor_t *sensorP)
 {
 	bool status = false;
 	switch (sensorP->state)
@@ -144,6 +158,7 @@ static bool poll(moisture_sensor_t *sensorP)
 	}
 	return status;
 }
+/* Callback function to indicate a sampling of the ADC has been complete */
 static adc_irq_cb_t adcReadCompCB()
 {
 	sampleFlag = 1;

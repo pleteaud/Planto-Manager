@@ -2,7 +2,7 @@
  * DHT11.c
  *
  * Created: 3/26/2020 6:38:38 PM
- *  Author: plete
+ *  Author: Davo Pleteau
  */ 
 
 /************************************************************************/
@@ -26,13 +26,14 @@
 /************************************************************************/
 /*                      Private Function Declaration                    */
 /************************************************************************/
-static int8_t getdata(uint8_t *temperature, uint8_t *humidity, uint8_t pinNum);
+static comm_status_t getdata(uint8_t *temperature, uint8_t *humidity, uint8_t pinNum);
 static bool dht11Poll(dht11_sensor_t *sensorP);
 
 /************************************************************************/
 /*                      Public Functions Implementations                */
 /************************************************************************/
 
+/* Initializes the data members of a dht11 sensor object */
 void dht11Init(dht11_sensor_t *sensorP, uint8_t pinNum)
 {
 	sensorP->temperature = sensorP->humidity=0;
@@ -41,15 +42,21 @@ void dht11Init(dht11_sensor_t *sensorP, uint8_t pinNum)
 	sensorP->state = DHT11_IDLE;
 }
 
+/* Retrieve sensor's temperature reading */
 uint8_t dht11GetTemp(dht11_sensor_t *sensorP)
 {
 	return sensorP->temperature;
 }
 
+/* Retrieve sensor's relative humidity reading */
 uint8_t dht11GetRH(dht11_sensor_t *sensorP)
 {
 	return sensorP->humidity;
 }
+
+/* Initiate a temperature and relative humidity read */
+/* If return is false, reading procedure isn't complete or an error has occurred */
+/* If true, sensor's temperature and moisture values are updated */
 bool dht11ReadTempRH(dht11_sensor_t *sensorP)
 {
 	return dht11Poll(sensorP);
@@ -57,6 +64,10 @@ bool dht11ReadTempRH(dht11_sensor_t *sensorP)
 /************************************************************************/
 /*                     Private Functions Implementation                 */
 /************************************************************************/
+
+/* Control and monitor communication procedure between chip and DHT11 */
+/* If return is false, reading procedure isn't complete or an error has occurred */
+/* If true, sensor's temperature and moisture values are updated */
 static bool dht11Poll(dht11_sensor_t *sensorP)
 {
 	bool status = false;
@@ -119,7 +130,14 @@ static bool dht11Poll(dht11_sensor_t *sensorP)
 	return status;
 }
 
-static int8_t getdata(uint8_t *temperature, uint8_t *humidity, uint8_t pinNum)
+/* Blocking procedure that extracts the temperature and humidity from DHT11 */
+/* Return status of communication:
+		READ_SUCCESS == Temp and Humidity was succesfully extracted from DHT11 sensor,
+		NO_RESPONSE_ERROR == unable to establish an initial response from DHT11 sensor (before transmitting temp/rh data),
+		TIME_OUT_ERROR == no response was detected during temp/rh bit transmission,
+		BAD_CHECKSUM_ERROR == There is an error in the temp and rh data
+*/
+static comm_status_t getdata(uint8_t *temperature, uint8_t *humidity, uint8_t pinNum)
 {
 	/* Check if DHT is still cooling down from previous sample */
 		

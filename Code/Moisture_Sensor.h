@@ -2,9 +2,13 @@
  * Moisture_Sensor.h
  *
  * Created: 5/12/2020 12:20:26 PM
- *  Author: plete
+ *  Author: Davo Pleteau
  */ 
 
+
+/************************************************************************/
+/*							Includes/Constants	 	                    */
+/************************************************************************/
 #include "stdint.h"
 #include "stdbool.h"
 #include "timer.h"
@@ -12,25 +16,34 @@
 #ifndef MOISTURE_SENSOR_H_
 #define MOISTURE_SENSOR_H_
 
-enum moisture_sensor_state 
+/************************************************************************/
+/*							Enums Definition		 	                */
+/************************************************************************/
+typedef enum soil_moisture_sensor_state_e
 {
 	MS_IDLE=0,
 	MS_STABLILIZING,
 	MS_READ,
 	MS_READ_COMPLETE,
-};
+} soil_moisture_sensor_state_e;
 
-typedef struct moisture_sensor_s
+/************************************************************************/
+/*				            Struct Definition							*/
+/************************************************************************/
+typedef struct soil_moisture_sensor_s
 {
 	uint8_t adcChannel;
-	enum moisture_sensor_state state; 
+	soil_moisture_sensor_state_e state; 
 	double moisture;
 	uint8_t sampleNum;
 	uint8_t timeStamp;
-}moisture_sensor_t;
+} soil_moisture_sensor_t;
 
-void msInit(moisture_sensor_t *sensorP,uint8_t chann);
-bool readMoisture(moisture_sensor_t *sensorP);
-double msGetMoisture(moisture_sensor_t *sensorP);
-void powerSensor(bool relayState);
+/************************************************************************/
+/*							Public Interfaces    	                    */
+/************************************************************************/
+void sensorInit(soil_moisture_sensor_t *sensorP,uint8_t chann);
+bool sensorRead(soil_moisture_sensor_t *sensorP);
+double sensorGet(soil_moisture_sensor_t *sensorP);
+void sensorPower(bool relayState);
 #endif /* MOISTURE_SENSOR_H_ */
