@@ -4,33 +4,35 @@
 #include "timer.h"
 #include "Moisture_Sensor.h"
 dht11_sensor_t rSensor;
-moisture_sensor_t ms;
+soil_moisture_sensor_t soilSensor;
 int main(void)
 {
 	/* Initializes MCU, drivers and middleware */
 	atmel_start_init();
 	
+	/* Initialize sensors */
+	dht11Init(&rSensor,6);
+	sensorInit(&soilSensor,0);
+	sensorPower(true);
+	
 	int8_t temperature = 0;
 	int8_t humidity = 0;
 	volatile double moisture;
-	/* Delay a few seconds to allow dht11 to stablelize */
-	milli_delay(4000); 
-	dht11Init(&rSensor,6);
-	//msInit(&ms,0);
-	//powerSensor(true);
+	/* Test Calibration function */
+	sensorCalibrate(&soilSensor);
 	while (1)
 	{
-		if(dht11ReadTempRH(&rSensor))
-		{
-			DDRB |= 1<<PINB4;
-			PORTB = 1 << PINB4; //Turns ON All LEDs
-			/* Delay for 2000 to allow next read */
-			//milli_delay(500);
-		}
-		//if (readMoisture(&ms))
+		//if(dht11ReadTempRH(&rSensor))
 		//{
-			//moisture = msGetMoisture(&ms); 
+			//DDRB |= 1<<PINB4;
+			//PORTB = 1 << PINB4; //Turns ON All LEDs
+			///* Delay for 2000 to allow next read */
+			////milli_delay(500);
 		//}
+		if (sensorRead(&soilSensor))
+		{
+			moisture = sensorGet(&soilSensor); 
+		}
 	}
 }
 

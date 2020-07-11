@@ -24,7 +24,7 @@ typedef enum soil_moisture_sensor_state_e
 	MS_IDLE=0,
 	MS_STABLILIZING,
 	MS_READ,
-	MS_READ_COMPLETE,
+	MS_READ_COMPLETE
 } soil_moisture_sensor_state_e;
 
 /************************************************************************/
@@ -42,8 +42,9 @@ typedef struct soil_moisture_sensor_s
 /************************************************************************/
 /*							Public Interfaces    	                    */
 /************************************************************************/
-void sensorInit(soil_moisture_sensor_t *sensorP,uint8_t chann);
+void sensorInit(soil_moisture_sensor_t *sensorP, uint8_t chann);
 bool sensorRead(soil_moisture_sensor_t *sensorP);
 double sensorGet(soil_moisture_sensor_t *sensorP);
 void sensorPower(bool relayState);
+void sensorCalibrate(soil_moisture_sensor_t *sensorP);
 #endif /* MOISTURE_SENSOR_H_ */

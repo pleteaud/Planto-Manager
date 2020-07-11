@@ -18,6 +18,10 @@
 #define RELAY_OUTOUT_PIN PB1
 
 static uint8_t sampleFlag = 0;
+/* Upper and lower bound for soil moisture value */
+static volatile double soilWetVal = 0; // lower bound
+static volatile double soilDryVal = 0; // upper bound
+static volatile double oldRange = 0; // Moisture Range
 /************************************************************************/
 /*                      Private Function Declaration                    */
 /************************************************************************/
@@ -62,7 +66,18 @@ void sensorInit(soil_moisture_sensor_t *sensorP,uint8_t chann)
 /* If true, the sensor's moisture value is updated */
 bool sensorRead(soil_moisture_sensor_t *sensorP)
 {
-	return poll(sensorP);
+	bool status = false;
+	if(poll(sensorP))
+	{
+		/* Convert average moisture calculated from Poll() subroutine to a value between 0-100. */
+		/* If value is closer to 0, soil is moist. If value is closer to 100, soil is dry */
+		double newMin = 0, newMax = 100;
+		double newRange = newMax - newMin; /* 0-100 */
+		/* Translate old moisture reading to a number between 0-100 */
+		sensorP->moisture = ((sensorP->moisture-soilWetVal)/oldRange)*(newRange) + newMin;
+		status = true;
+	}
+	return status;
 }
 
 /* Retrieve sensor's soil moisure reading */
@@ -70,7 +85,21 @@ double sensorGet(soil_moisture_sensor_t *sensorP)
 {
 	return sensorP->moisture;
 }
-
+/* Calibrate the upper and lower bound for soil moisture */
+void sensorCalibrate(soil_moisture_sensor_t *sensorP)
+{
+	/* Determine the value of the moisture, when soil is dry (upper bound) */
+	while(!poll(sensorP));
+	/* Store ADC value when soil is dry */
+	soilDryVal = sensorGet(sensorP);
+	/* Determine the value of the moisture. when soil is wet (lower bound) */
+	while(!poll(sensorP));
+	/* Store ADC value when soil is wet */
+	soilWetVal = sensorGet(sensorP);
+	/* Update range for linear transformation */
+	oldRange = soilDryVal-soilWetVal;
+	return;
+}
 
 
 /************************************************************************/
@@ -142,11 +171,10 @@ static bool poll(soil_moisture_sensor_t *sensorP)
 		}
 		case MS_READ_COMPLETE:
 		{
-			/* Take the average of the readings and convert to percentage */
+			/* Take the average of the readings */
 			sensorP->moisture /= 5;
-			/* Moisture of plant = moisture_read/moisture_fully_wet */
 			status = true;
-			/* Stop timer and reset timer */
+			/* Stop and reset timer */
 			stopMillisTimer();
 			sensorP->timeStamp=0;
 			/* Change state back to IDLE. If a new reading needs to be done process will start again */
