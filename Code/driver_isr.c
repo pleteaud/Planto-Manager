@@ -36,7 +36,15 @@
 #include <driver_init.h>
 #include <compiler.h>
 #include "timer.h"
+#include "rtc.h"
 
+ISR(INT0_vect)
+{
+
+	/* Insert your EXINT/INT/0 interrupt handling code here */
+	AxInterruptCB();
+	
+}
 ISR(TIMER1_CAPT_vect)
 {
 
