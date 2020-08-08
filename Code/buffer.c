@@ -11,7 +11,7 @@
 #include "buffer.h"
 #include "stddef.h"
 
-#define MAX_BUFFER_SIZE			(0x14)
+#define MAX_BUFFER_SIZE			(0x40)
 
 #define BUFFER_OWNER_MASK		(0x01)
 #define BUFFER_OWNER_POS		(0x00)
@@ -37,6 +37,7 @@ enum
 /************************************************************************/
 /*						Struct Implementation		                    */
 /************************************************************************/
+/* Circular Buffer */
 struct buffer_s
 {
 	uint8_t buffer[MAX_BUFFER_SIZE];
@@ -62,10 +63,11 @@ buffer_t* retrieveActiveBuffer(void)
 }
 
 /* Determine who owns the buffer currently */
+/* Owner is Master if Atmega chip is the one sending a command. */
+/* Owner is Slave when device being communicated to is responding to a command */
 uint8_t bufferGetCtrlStatus(const buffer_t *buffP)
 {
 	return (((buffP->flags & BUFFER_OWNER) == BUFFER_OWNER_MASTER) ? (BUFFER_OWNER_MASTER) : (BUFFER_OWNER_SLAVE));
-	
 }
 
 /* Initialize buffer object */
@@ -85,11 +87,11 @@ void *bufferSetData(buffer_t *buffP, uint8_t size)
 	uint8_t *dataP;
 	if(freeSpace == 0 || freeSpace < size)
 	{	
-		// there's not enough space to put any more data
+		/* There's not enough space to put any more data */
 		dataP = NULL;
 		buffP->flags |= BUFFER_OVR;
 	}
-	// If there's free space
+	/* If there's free space */
 	else if(freeSpace >= size)
 	{
 		dataP = buffP->dataInP;
@@ -107,11 +109,11 @@ void *bufferGetData(buffer_t *buffP, uint8_t size)
 	uint8_t *dataP;
 	if(filledSpace == 0 || filledSpace < size)
 	{
-		//indicate underflow
+		/* Indicate underflow (removing empty spaces) */
 		dataP = NULL;
 		buffP->flags |=  BUFFER_UND;
 	}
-	//retrieve current 
+	/* Retrieve current */ 
 	else if(filledSpace >= size)
 	{
 		dataP = buffP->dataOutP;
