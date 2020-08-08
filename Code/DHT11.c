@@ -40,7 +40,7 @@ void dht11Init(dht11_sensor_t *sensorP, uint8_t pinNum)
 	sensorP->pin = pinNum;
 	sensorP->errorCounter = 0;
 	sensorP->state = DHT11_IDLE;
-	/* Delay a few seconds to allow dht11 to stablelize */
+	/* Delay a few seconds to allow dht11 to stabilize */
 	milli_delay(4000);
 }
 
