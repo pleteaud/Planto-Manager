@@ -42,11 +42,18 @@
 
 /* Alarm Matching Bits */
 #define AxMx_FLAG_MASK			(0x01UL)
-#define AxMx_FLAG_POS			(0x07)
-#define AxM1_FLAG_SCALOR		(0x01)
-#define AxM2_FLAG_SCALOR		(0x2)
-#define AxM3_FLAG_SCALOR		(0x03)
-#define AxM4_FLAG_SCALOR		(0x04)
+
+#define A1M4_FLAG_POS			(0x07)
+#define AXM3_FLAG_POS			(BYTE_SHIFT + A1M4_FLAG_POS)
+#define AXM2_FLAG_POS			(BYTE_SHIFT + AXM3_FLAG_POS)
+#define AXM1_FLAG_POS			(BYTE_SHIFT + AXM2_FLAG_POS)
+
+
+
+#define AxM1_FLAG               (AxMx_FLAG_MASK << AXM1_FLAG_POS)
+#define AxM2_FLAG				(AxMx_FLAG_MASK << AXM2_FLAG_POS)
+#define AxM3_FLAG				(AxMx_FLAG_MASK << AXM3_FLAG_POS)
+#define A1M4_FLAG				(AxMx_FLAG_MASK << A1M4_FLAG_POS)
 
 #define DY_DT_FLAG_MASK			(0x01)
 #define DY_DT_FLAG_POS			(0x06)
@@ -122,7 +129,7 @@
 #define A1I_FLAG_POS			(0x00)
 #define A1I_FLAG				(A1I_FLAG_MASK << A1I_FLAG_POS)
 
-#define BYTE_SHIFT				(sizeof(uint64_t))
+#define BYTE_SHIFT				(0x08)
 #define NIBBLE_SHIFT			(BYTE_SHIFT/2)
 #define START_ADDRESS_OFFSET	(0x01)
 
