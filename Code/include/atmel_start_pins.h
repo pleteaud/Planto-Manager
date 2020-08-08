@@ -258,4 +258,66 @@ static inline bool PC5_get_level()
 	return PORTC_get_pin_level(5);
 }
 
+/**
+ * \brief Set PD2 pull mode
+ *
+ * Configure pin to pull up, down or disable pull mode, supported pull
+ * modes are defined by device used
+ *
+ * \param[in] pull_mode Pin pull mode
+ */
+static inline void PD2_set_pull_mode(const enum port_pull_mode pull_mode)
+{
+	PORTD_set_pin_pull_mode(2, pull_mode);
+}
+
+/**
+ * \brief Set PD2 data direction
+ *
+ * Select if the pin data direction is input, output or disabled.
+ * If disabled state is not possible, this function throws an assert.
+ *
+ * \param[in] direction PORT_DIR_IN  = Data direction in
+ *                      PORT_DIR_OUT = Data direction out
+ *                      PORT_DIR_OFF = Disables the pin
+ *                      (low power state)
+ */
+static inline void PD2_set_dir(const enum port_dir dir)
+{
+	PORTD_set_pin_dir(2, dir);
+}
+
+/**
+ * \brief Set PD2 level
+ *
+ * Sets output level on a pin
+ *
+ * \param[in] level true  = Pin level set to "high" state
+ *                  false = Pin level set to "low" state
+ */
+static inline void PD2_set_level(const bool level)
+{
+	PORTD_set_pin_level(2, level);
+}
+
+/**
+ * \brief Toggle output level on PD2
+ *
+ * Toggle the pin level
+ */
+static inline void PD2_toggle_level()
+{
+	PORTD_toggle_pin_level(2);
+}
+
+/**
+ * \brief Get level on PD2
+ *
+ * Reads the level on a pin
+ */
+static inline bool PD2_get_level()
+{
+	return PORTD_get_pin_level(2);
+}
+
 #endif /* ATMEL_START_PINS_H_INCLUDED */
