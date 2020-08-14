@@ -5,6 +5,10 @@
  *  Author: Davo Pleteau
  */ 
 
+#define clockCyclesPerMicrosecond() (16000000 / 1000000L)
+#define clockCyclesToMicroseconds(a) ( (a) / clockCyclesPerMicrosecond() )
+#define microsecondsToClockCycles(a) ( (a) * clockCyclesPerMicrosecond() )
+
 
 #ifndef TIMER_H_
 #define TIMER_H_
