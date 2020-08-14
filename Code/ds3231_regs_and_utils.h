@@ -17,6 +17,9 @@
 /************************************************************************/
 /*							Constants					                */
 /************************************************************************/
+
+#define BYTE_BIT_COUNT			(0x08)
+
 /*** Address Map for DS3231 Registers ***/
 #define RTC_SEC_ADDR			(0x00)
 #define RTC_MIN_ADDR			(0x01)
@@ -44,9 +47,9 @@
 #define AxMx_FLAG_MASK			(0x01UL)
 
 #define A1M4_FLAG_POS			(0x07)
-#define AXM3_FLAG_POS			(BYTE_SHIFT + A1M4_FLAG_POS)
-#define AXM2_FLAG_POS			(BYTE_SHIFT + AXM3_FLAG_POS)
-#define AXM1_FLAG_POS			(BYTE_SHIFT + AXM2_FLAG_POS)
+#define AXM3_FLAG_POS			(BYTE_BIT_COUNT + A1M4_FLAG_POS) //15
+#define AXM2_FLAG_POS			(BYTE_BIT_COUNT + AXM3_FLAG_POS) //23
+#define AXM1_FLAG_POS			(BYTE_BIT_COUNT + AXM2_FLAG_POS) //31
 
 
 
@@ -129,13 +132,9 @@
 #define A1I_FLAG_POS			(0x00)
 #define A1I_FLAG				(A1I_FLAG_MASK << A1I_FLAG_POS)
 
-#define BYTE_SHIFT				(0x08)
-#define NIBBLE_SHIFT			(BYTE_SHIFT/2)
 #define START_ADDRESS_OFFSET	(0x01)
 
 /* Slave Address for I2C */
 #define DS3231_SLAVE_ADDR       (0x68)
-// Function to get an alarm match flag 
-#define getAxMxFlag(a)  (AxMx_FLAG_MASK << (AxMx_FLAG_POS * a))
 
 #endif /* DS3231_REGS_H_ */
