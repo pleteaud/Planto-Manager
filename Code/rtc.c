@@ -14,8 +14,13 @@
 #include "buffer.h"
 #include "cmd_proc.h"
 #include <avr/io.h>
-#include "timer.h"
+#include "LCD.h"
+#include "stdio.h"
+#include "port.h"
 
+
+#define INTCN_PIN		PINC	
+#define INTCN_PIN_NUM	PINC3
 
 
 /************************************************************************/
@@ -39,17 +44,19 @@ struct rtc_manager_s
 /*                      Private Variables                               */
 /************************************************************************/
 static rtc_manager_t rtcMan;
-static bool AxIntTrig = false;
+/* Custom Pattern byte for clock */
+unsigned char clockSymbol[] = {0x0,0xe,0x15,0x17,0x11,0xe,0x0,0x00};
+uint8_t clkSymLoc = 0;
+unsigned char calendarSymbol[] = {0x00,0x11,0x1F,0x13,0x1F,0x1F,0x00,0x00};
+uint8_t calSymLoc = 1;
 
 /************************************************************************/
 /*                      Private Function Declaration                    */
 /************************************************************************/
-static void getDigits(uint8_t num, uint8_t *digitP);
-static uint64_t configTime(uint8_t *time, uint8_t totTimeUnits);
-static void insertTimeInPayload(uint64_t configTime, uint8_t *payload, uint8_t numTimeUnits);
+static void configTime(uint8_t *time, uint8_t totTimeUnits);
 static void rtcAddError(rtc_manager_t *rtcP, enum rtc_errors_e error);
-static void configMatchingConditions(uint32_t *timeBits, enum alarm_match_options_e matchFlag, enum alarm_pos_e pos);
-static bool verifyAxData(uint8_t *dataP, uint8_t *axTime, enum alarm_match_options_e, enum alarm_pos_e pos);
+static uint32_t configMatchingConditions(enum alarm_match_options_e matchFlag, enum alarm_pos_e pos);
+static bool verifyAxData(uint8_t *dataP, uint8_t *axTime, uint8_t len);
 static bool verifyCtrlReg(uint8_t *dataP, uint8_t ctrlReg);
 /************************************************************************/
 /*                      Public Functions Implementations                */
@@ -74,10 +81,26 @@ void rtcInit()
 	alarmInit(&rtcMan.alarm2);
 	rtcMan.alarm2.matchFlag = A2_MATCH_DT_HR_MIN; /* 0 */
 	rtcMan.errorList[256]= 0;
-	
-	
+	/* Build Clock Symbol */
+	lcdBuildSym(clkSymLoc,clockSymbol);
+	/* Print symbol */
+	lcdSetDDRAMAdrr(0,0);
+	lcdWriteSymbol(clkSymLoc);
+	/* Build Calendar Symbol */
+	lcdBuildSym(calSymLoc,calendarSymbol);
+	/* Print Symbol */
+	lcdSetDDRAMAdrr(0,7);
+	lcdWriteSymbol(calSymLoc);
+	/* Print initial time */
+	printTime();
 }
-
+void rtcSetAxCB(rtc_manager_t *rtcP,enum alarm_pos_e pos, void (*funcP)(void *objP), void *objP)
+{
+	if(pos == ALARM_1) 
+		alarmSetCB(&rtcP->alarm1,funcP,objP);
+	else 
+		alarmSetCB(&rtcP->alarm2,funcP,objP);
+}
 /* Indicate whether RTC is free and ready to be used */
 bool rtcIsFree(rtc_manager_t *rtcP)
 {
@@ -97,13 +120,6 @@ alarm_t* rtcGetAlarm(rtc_manager_t *rtcP, enum alarm_pos_e pos)
 {
 	return (pos == ALARM_1) ? &rtcP->alarm1 : &rtcP->alarm2; 
 }
-/* Callback function to indicate A1 or A2 flag has been triggered */
-void AxInterruptCB(void)
-{
-	/* Disable External interrupt */
-	EIMSK &= ~(1 << INT0);
-	AxIntTrig = true;
-}
 
 /* Polling function to navigate RTC object states and to execute corresponding actions */ 
 void rtcPoll(void)
@@ -112,15 +128,9 @@ void rtcPoll(void)
 	switch (rtcP->state)
 	{
 		case RTC_IDLE:
-			/* Check if Alarm Interrupt has been triggered */
-			if (AxIntTrig)
-			{
-				rtcReadRegisters(rtcP);
-				/* Clear Interrupt flag */
-				AxIntTrig = false;
-			}
+			/* Check if INTCN was pulled low */
+			if (!(INTCN_PIN & (1<<INTCN_PIN_NUM)) && (rtcMan.ctrlReg & AI1E_FLAG || rtcMan.ctrlReg & AI2E_FLAG)) {rtcReadRegisters(rtcP);}
 			break;
-		
 		case RTC_SETTING_A1:
 		case RTC_SETTING_A2:
 		case RTC_SETTING_CR:
@@ -129,11 +139,6 @@ void rtcPoll(void)
 			/* Check if command is over */
 			if(cmdPocRtnIsReady())
 			{
-				/* Renable External Interrupts */
-				if (rtcP->ctrlReg & INTCN_FLAG)
-				{
-					EIMSK = 1 << INT0;
-				}
 				/* Clear buffer for next command */
 				bufferClear(retrieveActiveBuffer());
 				/* Change State to IDLE */
@@ -153,45 +158,38 @@ void rtcPoll(void)
 				/* Verify Alarm1 registers if it's set */
 				if(rtcP->ctrlReg & AI1E_FLAG)
 				{
-					if (!verifyAxData(dataP + A1_SEC_ADDR,rtcP->alarm1.time,rtcP->alarm1.matchFlag,ALARM_1))
-					{
-					rtcAddError(rtcP,INCONSISTENT_A1);}
+					if (!verifyAxData(dataP + A1_SEC_ADDR,rtcP->alarm1.time, TOTAL_ALARM1_REGISTERS)) {rtcAddError(rtcP,INCONSISTENT_A1);}
 				}
 				/* Verify Alarm2 registers if it's set */
 				if(rtcP->ctrlReg & AI2E_FLAG)
 				{
-					if (!verifyAxData(dataP + A2_MIN_ADDR,rtcP->alarm2.time,rtcP->alarm2.matchFlag,ALARM_2)){
-					rtcAddError(rtcP,INCONSISTENT_A2);
-					}
+					if (!verifyAxData(dataP + A2_MIN_ADDR,&rtcP->alarm2.time[1],TOTAL_ALARM2_REGISTERS)) {rtcAddError(rtcP,INCONSISTENT_A2);}
 				}
 				
 				/* Check Status register and clear respective bits */
 				rtcP->ctrlStatReg = *(dataP + RTC_CTRL_STAT_ADDR);
-				uint8_t newSReg = 7; /* 00000111 */
 				if (rtcP->ctrlStatReg & OSC_FLAG)
 				{
 					/* Report error: OSC should normally be 0. */
 					rtcAddError(rtcP, OSC_STOP);
 				}
-				if (rtcP->ctrlStatReg & A1I_FLAG && (rtcP->ctrlReg & AI1E_FLAG))
+				if ((rtcP->ctrlStatReg & A1I_FLAG) && (rtcP->ctrlReg & AI1E_FLAG))
 				{
 					/* Execute A1 callback */
-					rtcP->alarm1.alarmCB.alarmOnCB(rtcP->alarm1.alarmCB.objP);
-					/* Clear Alarm 1 bit */
-					newSReg = newSReg & ~(A1I_FLAG);
+					alarmExecuteCB(&rtcP->alarm1);
 				}
-				if (rtcP->ctrlStatReg & A2I_FLAG && (rtcP->ctrlReg & AI2E_FLAG))
+				if ((rtcP->ctrlStatReg & A2I_FLAG) && (rtcP->ctrlReg & AI2E_FLAG))
 				{
 					/* Execute A2 callback which is to Update LCD Screen */ 
-					rtcP->alarm2.alarmCB.alarmOnCB(rtcP->alarm2.alarmCB.objP);
-					/* Clear Alarm 2 bit */
-					newSReg = newSReg & ~(A2I_FLAG);
+					alarmExecuteCB(&rtcP->alarm2);
 				}
 				
 				/* Clear buffer for next command */
 				bufferClear(retrieveActiveBuffer());
-				/* Clear CMD complete flag and set new status */
-				rtcSetStatReg(rtcP,newSReg);
+				/* Clear CMD complete flag and clear flags */
+				rtcSetStatReg(rtcP,0);
+				/* Print Time */
+				printTime();
 			}
 			break;
 		default:
@@ -233,18 +231,12 @@ bool rtcSetTime(rtc_manager_t *rtcP, uint8_t *time)
 	{
 		return status;
 	}
+	status = true;
 	/* Set appropriate state */
 	rtcP->state = RTC_SETTING_TIME;
-	/* Store values inside array of time */
-	for (int i = TIME_UNITS_SEC; i < TIME_UNITS_TOTAL; i++)
-	{
-		rtcP->time[i] = *(time + i);
-	}
 	
 	/* Configure Time for DS3231  */
-	uint64_t timebits = 0;
-	timebits = configTime(rtcP->time, TIME_UNITS_TOTAL);
-	status = true;
+	configTime(time, TIME_UNITS_TOTAL);
 	
 	/* Configure command header + payload */
 	cmd_hdr_t *cmdHdr;
@@ -254,11 +246,9 @@ bool rtcSetTime(rtc_manager_t *rtcP, uint8_t *time)
 	
 	/* Store address pointer of first register of DS3231 before sending payload */
 	cmdHdr->payload[0] = RTC_SEC_ADDR;
-	
-	insertTimeInPayload(timebits,cmdHdr->payload + START_ADDRESS_OFFSET, TIME_UNITS_TOTAL);
+	for (int i = 0; i < TIME_UNITS_TOTAL; i++){*(cmdHdr->payload + START_ADDRESS_OFFSET + i) = time[i];}
 	/* Calculate Checksum */
 	cmdHdr->checksum = cmdHdrCalcChecksum(cmdHdr,cmdHdr->length);
-	
 	return status;
 }
 
@@ -300,9 +290,6 @@ bool rtcSetStatReg(rtc_manager_t *rtcP,uint8_t newStatReg)
 	/* Set appropriate state */
 	rtcP->state = RTC_SETTING_SR;
 	
-	/* Configure RTC Control */
-	rtcP->ctrlStatReg = newStatReg;
-	
 	/* Send command to set control register */
 	cmd_hdr_t *cmdHdr;
 	cmdHdr = bufferSetData(retrieveActiveBuffer(), sizeof(cmd_hdr_t) + sizeof(set_sat_reg_cmd_t));
@@ -312,7 +299,7 @@ bool rtcSetStatReg(rtc_manager_t *rtcP,uint8_t newStatReg)
 	
 	/* Store address pointer of control register */
 	cmdHdr->payload[0] = RTC_CTRL_STAT_ADDR;
-	cmdHdr->payload[1] = rtcP->ctrlStatReg;
+	cmdHdr->payload[1] = newStatReg;
 	return true;
 }
 
@@ -323,25 +310,28 @@ bool rtcSetAlarm(rtc_manager_t *rtcP, enum alarm_pos_e pos, uint8_t *time, enum 
 	/* Request to send new command */
 	if(!cmdProcCtrlRequestNewCmd()) {return status;}
 		
-	uint32_t timebits = 0;
-	/* Set up temporary cmd header to send to send to cmdPoll */
+	uint32_t matchBits = 0;
+	/* Set up cmd header */
 	cmd_hdr_t *cmdHdr;
 	if (pos == ALARM_2)
 	{
 		rtcP->state = RTC_SETTING_A2;
-		alarmStoreTime(&rtcP->alarm2, time);
 		/* Configure command specifications */
 		cmdHdr = bufferSetData(retrieveActiveBuffer(), sizeof(cmd_hdr_t) + sizeof(set_alarm2_time_cmd_t));
 		cmdHdr->type = SET_ALARM2_TIME;
 		cmdHdr->length = sizeof(cmd_hdr_t) + sizeof(set_alarm2_time_cmd_t);
+		
 		/* Store address pointer of alarm 2 before the time */
 		cmdHdr->payload[0] = A2_MIN_ADDR;
 		/* Config time bits */
-		timebits |= configTime(rtcP->alarm2.time, MAX_ALARM_TIME_UNITS);
-		configMatchingConditions(&timebits, matchFlag, ALARM_2);
+		configTime(time,TOTAL_ALARM2_REGISTERS);
+		alarmStoreTime(&rtcP->alarm2, time);
+		matchBits = configMatchingConditions(matchFlag,ALARM_2);
+		int len = TOTAL_ALARM2_REGISTERS - 1; /* Used to extract each byte from matchBits in the following loop*/
+		for (int i = 0; i < TOTAL_ALARM2_REGISTERS; i++){ rtcP->alarm2.time[1+i] |= matchBits >> (len-i) * BYTE_BIT_COUNT; /*We start at second index of time because Alarm 2 doesn't have seconds (first index)*/}
 		rtcP->alarm2.matchFlag = matchFlag;
 		/* Load time into cmd payload */
-		insertTimeInPayload(timebits, cmdHdr->payload + START_ADDRESS_OFFSET, TOTAL_ALARM2_REGISTERS); /* Alarm 2 only has 3 registers */
+		for (int i = 0; i < TOTAL_ALARM2_REGISTERS; i++){*(cmdHdr->payload + START_ADDRESS_OFFSET + i) = rtcP->alarm2.time[1+i];}
 		/* Calculate Checksum */
 		cmdHdr->checksum = cmdHdrCalcChecksum(cmdHdr,cmdHdr->length);
 		status = true;
@@ -349,7 +339,6 @@ bool rtcSetAlarm(rtc_manager_t *rtcP, enum alarm_pos_e pos, uint8_t *time, enum 
 	else
 	{
 		rtcP->state = RTC_SETTING_A1;
-		alarmStoreTime(&rtcP->alarm1, time);
 		/* Configure command specifications */
 		cmdHdr = bufferSetData(retrieveActiveBuffer(), sizeof(cmd_hdr_t) + sizeof(set_alarm1_time_cmd_t));
 		cmdHdr->type = SET_ALARM1_TIME;
@@ -357,11 +346,14 @@ bool rtcSetAlarm(rtc_manager_t *rtcP, enum alarm_pos_e pos, uint8_t *time, enum 
 		/* Store address pointer of alarm 1 before the time */
 		cmdHdr->payload[0] = A1_SEC_ADDR;
 		/* Config time bits */
-		timebits = configTime(rtcP->alarm1.time, MAX_ALARM_TIME_UNITS);
-		configMatchingConditions(&timebits, matchFlag, ALARM_1);
+		configTime(time,TOTAL_ALARM1_REGISTERS);
+		alarmStoreTime(&rtcP->alarm1, time);
+		matchBits = configMatchingConditions(matchFlag,ALARM_1);
+		int len = TOTAL_ALARM1_REGISTERS - 1; /* Used to extract each byte from matchBits in the following loop*/
+		for (int i = 0; i < TOTAL_ALARM1_REGISTERS; i++) { rtcP->alarm1.time[i] |= matchBits >> (len-i) * BYTE_BIT_COUNT;}
 		rtcP->alarm1.matchFlag = matchFlag;
 		/* Load time into cmd payload */
-		insertTimeInPayload(timebits,cmdHdr->payload + START_ADDRESS_OFFSET, TOTAL_ALARM1_REGISTERS);
+		for (int i = 0; i < TOTAL_ALARM1_REGISTERS; i++){*(cmdHdr->payload + START_ADDRESS_OFFSET + i) = rtcP->alarm1.time[i];}
 		/* Calculate Checksum */
 		cmdHdr->checksum = cmdHdrCalcChecksum(cmdHdr,cmdHdr->length);
 		status = true;
@@ -369,106 +361,80 @@ bool rtcSetAlarm(rtc_manager_t *rtcP, enum alarm_pos_e pos, uint8_t *time, enum 
 	return status;
 }
 
+/* Print time on LCD */
+void printTime(void)
+{
+	
+	/* uint8_t space; used for debugging. e.g space = snprintf(buff,20,"%x", time) */
+	/* Set cursor to (0,1) to Set Hour:Min in LCD */
+	lcdSetDDRAMAdrr(0,1);
+	char buff[20];
+	for (int i=TIME_UNITS_HR; i>TIME_UNITS_SEC; i--)
+	{
+		snprintf(buff,20,"%x",rtcMan.time[i]);
+		if(rtcMan.time[i] < 10){ lcdWriteString("0");}
+		lcdWriteString(buff);
+		if (i!=TIME_UNITS_SEC+1) {lcdWriteString(":");}
+	}
+	/* Set cursor to (0,7) to Set Date/month/year in LCD */
+	lcdSetDDRAMAdrr(0,8);
+	if ((rtcMan.time[TIME_UNITS_MO_CEN] & 0x1F) < 0x09)
+	{
+		lcdWriteString("0");
+	}
+	snprintf(buff,20,"%x/", rtcMan.time[TIME_UNITS_MO_CEN] & 0x1F);
+	lcdWriteString(buff);
+	snprintf(buff,20,"%x/", rtcMan.time[TIME_UNITS_DT]);
+	lcdWriteString(buff);
+	snprintf(buff,20,"%x", rtcMan.time[TIME_UNITS_YR]);
+	lcdWriteString(buff);
+	/* Return Cursor Home */
+	lcdReturnHome();
+}
 
 /************************************************************************/
 /*					Private Functions Implementation			        */
 /************************************************************************/
-/* Extract the 2 digits values from a given number for DS3231 */
-/* Was hoping to make this a function that can do a defined number of digits, */
-/* But unfortunately it's not wise to dynamically create arrays in embedded devices */
-static void getDigits(uint8_t num, uint8_t *digitP)
-{
-	/* Make an array to hold for the digits (in this case 2)*/
-	uint8_t digitArr[DIGITS_PER_TIME_UNIT] = {0};
-	/* Start extracting digits */
-	int arrIndex = 0;
-	while(num > 0)
-	{
-		digitArr[arrIndex]= num % 10;
-		num /= 10;
-		arrIndex++;
-	}
-	/* Must reverse elements to get correct digit order */
-	arrIndex = DIGITS_PER_TIME_UNIT - 1; /* Reinitialize array index to avoid going out of range of tempDigArr. */
-	for (int j = 0; j < DIGITS_PER_TIME_UNIT; j++) {digitP[j] = digitArr[arrIndex--];}
-}
-
 /* Configures the time bits in a way that satisfies the DS3231 registers */
-static uint64_t configTime(uint8_t *time, uint8_t totTimeUnits)
+static void configTime(uint8_t *time, uint8_t totTimeUnits)
 {
-	/* Allocate an array where each element represent a digit of time data: */
-	/* seconds(0-59) / minutes (0-59)/ hours(0-23 or 0-12)/ day(1-7)/ date(1-31)/ month(century) (1-12)/ year (00-99)} */
-	uint8_t digits[TIME_UNITS_TOTAL*DIGITS_PER_TIME_UNIT] = {0};
-
-	int digitsIndex = 0;
-	/* Extract and Store digits inside digits array */
-	/* totTimeUnits is set by higher object. Currently it can equal 7 (setting all rtc time) or 4 (setting alarm 1) or 3 (setting alarm 2) */
+	/*int len; Commented out cause this is only used for debugging purposes. e.g len = snprintf();*/
+	char c[10]; /* Random size that enough to fill any size time interger */
+	char *ptr; //Not really used.
 	for (int i = 0; i < totTimeUnits; i++)
 	{
-		getDigits(*(time+i), (digits + digitsIndex));
-		digitsIndex += DIGITS_PER_TIME_UNIT;
-	}
-	
-	/* Configure time bits as so: */
-	/* Seconds {MSB 8 bits} + Minutes {8 bits} + Hours {8 bits} + Day {8 bits} + Date {8 bits} + Month {8 bit} + Year {8 bit} + NULL {LSB 8 bits} */
-	uint64_t timeBits = 0;
-	uint64_t tempDigit = 0;
-	/* bitOffSet is used to place each digit in the rightful location inside timeBits */
-	int bitsOffSet = (totTimeUnits * BYTE_SHIFT) - BYTE_SHIFT; //starts at 48 because seconds byte takes up 8 bits
-	
-	for (int i = 0; i < totTimeUnits * DIGITS_PER_TIME_UNIT; i++)
-	{
-		/* if i is odd, then it's the one's place digit that needs to be added to timeBits (e.g 9 from 69) */
-		if (i % DIGITS_PER_TIME_UNIT)
-		{
-			tempDigit |= digits[i];
-			timeBits = (tempDigit << bitsOffSet) | timeBits;
-			bitsOffSet -= BYTE_SHIFT;
-			tempDigit = 0;
-		}
-		/* if i is even or 0, then it's the ten's place digit that needs to be added to timeBits (e.g 6 from 69)*/
-		else {tempDigit |= digits[i] << NIBBLE_SHIFT;}
-	}
-	return timeBits;
-}
-
-/* Insert the configured time bit inside a payload */
-static void insertTimeInPayload(uint64_t time, uint8_t *payload, uint8_t numTimeUnits)
-{
-	/* Offset for starting at first time unit in "time" variable. */
-	uint8_t bitOffSet = (numTimeUnits * BYTE_SHIFT)-BYTE_SHIFT;
-	for(int i = 0; i < numTimeUnits; i++)
-	{
-		*(payload + i) = time >> bitOffSet; /* sec/min/hour/day */
-		bitOffSet -= BYTE_SHIFT;
+		snprintf(c,10,"%d",time[i]);
+		time[i] = strtol(c,&ptr,16); /* Hex conversion of value */
 	}
 }
 
+/* Add error to the error tracker in RTC object */
 static void rtcAddError(rtc_manager_t *rtcP, enum rtc_errors_e error)
 {	
 	rtcP->errorList[rtcP->errorCount++] = error; 	
 }
 
 /* Configure the matching condition bits in the outgoing payload */ // change comment a bit idk
-static void configMatchingConditions(uint32_t *timeBits, enum alarm_match_options_e matchFlag, enum alarm_pos_e pos)
+static uint32_t configMatchingConditions(enum alarm_match_options_e matchFlag, enum alarm_pos_e pos)
 {
+	uint32_t timeBits = 0;
 	if (pos == ALARM_1)
 	{
 		switch(matchFlag)
 		{
 			case A1_MATCH_ONCE_PER_SEC:
-			*timeBits |= AxM1_FLAG | AxM2_FLAG | AxM3_FLAG | A1M4_FLAG;
+			timeBits |= AxM1_FLAG | AxM2_FLAG | AxM3_FLAG | A1M4_FLAG;
 			break;
 			case A1_MATCH_SEC:
-			*timeBits |= AxM2_FLAG | AxM3_FLAG | A1M4_FLAG;
+			timeBits |= AxM2_FLAG | AxM3_FLAG | A1M4_FLAG;
 			break;
 			case A1_MATCH_MIN_SEC:
-			*timeBits |= AxM3_FLAG | A1M4_FLAG;
+			timeBits |= AxM3_FLAG | A1M4_FLAG;
 			break;
 			case A1_MATCH_HR_MIN_SEC:
-			*timeBits |= A1M4_FLAG;
+			timeBits |= A1M4_FLAG;
 			case A1_MATCH_DY_HR_MIN_SEC:
-			*timeBits |= DY_DT_FLAG;
+			timeBits |= DY_DT_FLAG;
 			break;
 			case A1_MATCH_DT_HR_MIN_SEC:
 			default:
@@ -478,67 +444,35 @@ static void configMatchingConditions(uint32_t *timeBits, enum alarm_match_option
 	else
 	{
 		switch(matchFlag)
-		{	
+		{
 			case A2_MATCH_ONCE_PER_MIN:
-				*timeBits |= AxM2_FLAG | AxM3_FLAG | A1M4_FLAG;
-				break;
+			timeBits |= AxM2_FLAG | AxM3_FLAG | A1M4_FLAG;
+			break;
 			case A2_MATCH_MIN:
-				*timeBits |= AxM3_FLAG | A1M4_FLAG;
-				break;
+			timeBits |= AxM3_FLAG | A1M4_FLAG;
+			break;
 			case A2_MATCH_HR_MIN:
-				*timeBits |= A1M4_FLAG;
-				break;
+			timeBits |= A1M4_FLAG;
+			break;
 			case A2_MATCH_DY_HR_MIN:
-				*timeBits |= DY_DT_FLAG;
-				break;
+			timeBits |= DY_DT_FLAG;
+			break;
 			case A2_MATCH_DT_HR_MIN:
 			default:
-				break;
+			break;
 		}
 	}
+return timeBits;
 }
 
-static bool verifyAxData(uint8_t *dataP, uint8_t *axTime, enum alarm_match_options_e matchFlag, enum alarm_pos_e pos)
+/* Function to check if the alarm data being sent from the ds3231 is the expected value */
+static bool verifyAxData(uint8_t *dataP, uint8_t *axTime, uint8_t len)
 {
-	uint8_t axMask = 0;
-	bool status = false;
-	if (pos == ALARM_1)
+	for (int i = 0; i < len; i++)
 	{
-		for (int j = 0; j <= A1_DY_DT_ADDR-A1_SEC_ADDR; j++)
-		{
-			/* Extract the alarm time that's currently stored inside the DS3231 */
-			uint8_t alarmTime = *(dataP+j);
-			axMask |= (alarmTime & A1M4_FLAG) >> (A1M4_FLAG_POS-j);
-			if(axMask == 0 && j == A1_DY_DT_ADDR-A1_SEC_ADDR){ axMask |= (alarmTime & DY_DT_FLAG) >> (DY_DT_FLAG_POS-4);} /* Shift bit two places over */
-			uint8_t shiftedRXAlarmTime = alarmTime << 1;
-			uint8_t shiftedSetAlarmTime = axTime[j] << 1;
-			if(shiftedRXAlarmTime != shiftedSetAlarmTime)
-			{
-				return status;
-			}
-		}
+		if (*(dataP + i) != *(axTime + i)) {return false;}
 	}
-	else
-	{
-		int i = 0; /* index of Alarm 2 minutes */
-		for (int j = 0; j <= A2_DY_DT_ADDR-A2_MIN_ADDR; j++)
-		{
-			uint8_t alarmTime = *(dataP+j);
-			axMask |= (alarmTime & A1M4_FLAG) >> (A1M4_FLAG_POS-j);
-			if(axMask == 0 && j == A2_DY_DT_ADDR-A2_MIN_ADDR){ axMask |= (alarmTime & DY_DT_FLAG) >> (DY_DT_FLAG_POS-3);} /* Shift bit 3 places over */
-			uint8_t shiftedRXAlarmTime = alarmTime << 1;
-			uint8_t shiftedSetAlarmTime = axTime[j+1] << 1;
-			if(shiftedRXAlarmTime != shiftedSetAlarmTime)
-			{ 
-				return status;
-			} /* start checking at element i=1 cause Alarm2 doesn't have a seconds register */
-		}
-	}
-	if (axMask != matchFlag){ 
-		return status;}
-	/* no errors occured */
-	status = true;
-	return status;
+	return true;
 }
 
 /* Check see if errors in setting CR register  */
@@ -549,3 +483,5 @@ static bool verifyCtrlReg(uint8_t *dataP, uint8_t ctrlReg)
 	if (tempCtrlReg >> BBSQW_FLAG_POS != ctrlReg >> BBSQW_FLAG_POS && tempCtrlReg << RS2_FLAG_POS != ctrlReg << RS2_FLAG_POS) {return false;}
 	return true;
 }
+
+

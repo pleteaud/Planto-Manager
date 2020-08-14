@@ -43,6 +43,20 @@ enum days_e
 	SAT, 
 	SUN
 };
+enum months_e {
+	   JAN = 1,
+	   FEB,
+	   MAR,
+	   APR,
+	   MAY,
+	   JUN,
+	   JUL,
+	   AUG,
+	   SEP,
+	   OCT,
+	   NOV,
+	   DEC
+   };
 
 enum rtc_state_e 
 {
@@ -91,4 +105,6 @@ bool rtcSetTime(rtc_manager_t *rtcP, uint8_t *time);
 bool rtcSetCtrlReg(rtc_manager_t *rtcP,uint8_t newCtrlReg);
 bool rtcSetStatReg(rtc_manager_t *rtcP,uint8_t newStatReg);
 bool rtcSetAlarm(rtc_manager_t *rtcP, enum alarm_pos_e pos, uint8_t *time, enum alarm_match_options_e matchFlag);
+uint64_t configTime2(uint8_t *time, uint8_t totTimeUnits);
+void printTime(void);
 #endif /* RTC_H_ */
