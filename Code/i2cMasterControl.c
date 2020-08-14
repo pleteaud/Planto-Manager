@@ -9,6 +9,7 @@
 /*							Includes/Constants	 	                    */
 /************************************************************************/
 #include "i2cMasterControl.h"
+#include "cmd_proc.h"
 #include <driver_init.h>
 
 #define MAX_ERRORS		(0x78)
