@@ -411,7 +411,7 @@ static i2c_fsm_states_t I2C_0_do_I2C_RESET(void)
 	TWCR               = ((1 << TWSTO) | (1 << TWINT));
 	I2C_0_status.busy  = false; // Bus Free
 	I2C_0_status.error = I2C_NOERR;
-	return I2C_SEND_STOP; // park the FSM on reset
+	return I2C_RESET; // park the FSM on reset
 }
 
 static i2c_fsm_states_t I2C_0_do_I2C_IDLE(void)
