@@ -1,35 +1,29 @@
 #include <atmel_start.h>
 #include <util/delay.h>
-#include "DHT11.h"
-#include "timer.h"
-#include "Moisture_Sensor.h"
-#include "rtc.h"
+#include "main.h"
 dht11_sensor_t rSensor;
 soil_moisture_sensor_t soilSensor;
-
-void tempCallBack(uint8_t *count);
-uint8_t alarmCount = 0;
 int main(void)
 {
 	/* Initializes MCU, drivers and middleware */
 	atmel_start_init();
-	/* Turn off External interrupt until an alarm is set*/
-	EIMSK &= ~(1 << INT0);
+	/* Initialize LCD */
+	lcdInit();	
 	/* Initialize temp and soil sensors */
-	//dht11Init(&rSensor,6);
-	//sensorInit(&soilSensor,0);
-	//sensorPower(true);
+	dht11Init(&rSensor);
+	sensorInit(&soilSensor,0);
+	sensorPower(true);
 	/* Initialize buffer */
 	bufferInit(retrieveActiveBuffer());
 	/* Initialize cmd procedure */
 	cmdProcInit();
 	/* Initialize Master I2C */
 	i2cMasterInit(DS3231_SLAVE_ADDR);
-	/* Initialize RTC */
+	
+	/* Initialize and Configure RTC */
 	rtcInit();
 	/* Set time registers */
-	uint8_t initialTime[7] = {00,23,21,THURS,6, 8, 20};
-	if (rtcSetCtrlReg(retrieveActiveRTC(), 0))
+	if (rtcSetCtrlReg(retrieveActiveRTC(), INTCN_FLAG))
 	{
 		/* Wait till reg is set */
 		while (!rtcIsFree(retrieveActiveRTC()))
@@ -38,6 +32,8 @@ int main(void)
 			rtcPoll();
 		}
 	}
+	
+	uint8_t initialTime[7] = {45,30,14,WED,12,AUG,20};
 	if(rtcSetTime(retrieveActiveRTC(),initialTime))
 	{
 		/* Wait till time is set */
@@ -49,8 +45,7 @@ int main(void)
 	}
 
 	/* Set Alarm 2 to occur every minute */
-	uint8_t a2Time[4] = {00, 00, 00, 0};
-	alarmSetCB(rtcGetAlarm(retrieveActiveRTC(),ALARM_2),tempCallBack,alarmCount);
+	uint8_t a2Time[4] = {00, 31, 23, 01};
 	if(rtcSetAlarm(retrieveActiveRTC(),ALARM_2,a2Time,A2_MATCH_ONCE_PER_MIN))
 	{
 		/* Wait till a2 is set */
@@ -60,8 +55,19 @@ int main(void)
 			rtcPoll();
 		}
 	}
+	/* Set Alarm 1 to occur every minute */
+	uint8_t a1Time[4] = {00, 00, 00, 01};
+	if(rtcSetAlarm(retrieveActiveRTC(),ALARM_1,a1Time,A1_MATCH_SEC))
+	{
+		/* Wait till a1 is set */
+		while (!rtcIsFree(retrieveActiveRTC()))
+		{
+			cmdProcCtrPoll();
+			rtcPoll();
+		}
+	}
 	
-	if (rtcSetCtrlReg(retrieveActiveRTC(), rtcGetCtrlReg(retrieveActiveRTC()) | INTCN_FLAG | AI2E_FLAG))
+	if (rtcSetCtrlReg(retrieveActiveRTC(), rtcGetCtrlReg(retrieveActiveRTC()) | AI1E_FLAG))
 	{
 		/* Wait till reg is set */
 		while (!rtcIsFree(retrieveActiveRTC()))
@@ -70,53 +76,70 @@ int main(void)
 			rtcPoll();
 		}
 	}
-	if (rtcSetStatReg(retrieveActiveRTC(), 0))
+	/* Clear out Status register in case there is an interrupt that wasn't cleared from previous session */
+	if (rtcSetStatReg(retrieveActiveRTC(),0))
 	{
 		/* Wait till reg is set */
 		while (!rtcIsFree(retrieveActiveRTC()))
 		{
-			cmdProcCtrPoll();
-			rtcPoll();
+		cmdProcCtrPoll();
+		rtcPoll();
 		}
 	}
+
 	while(1)
 	{
 		rtcPoll();
 		cmdProcCtrPoll();
+		dht11Poll(&rSensor);
 	}
 
-	/* Initialize sensors */
 	
+}
+//int main(void)
+//{
+	///* Initializes MCU, drivers and middleware */
+	//atmel_start_init();
 	//
+	///* Initialize sensors */
+	//dht11Init(&rSensor);
+//
 	//int8_t temperature = 0;
 	//int8_t humidity = 0;
 	//volatile double moisture;
 	///* Test Calibration function */
+	//while (1)
+	//{
+		//if(dht11Poll(&rSensor))
+		//{
+			//temperature = dht11GetTemp(&rSensor);
+			//humidity = dht11GetRH(&rSensor);
+		//}
+	//
+	//}
+//}
+//double moisture;
+	///* Test Calibration function */
 	//sensorCalibrate(&soilSensor);
 	//while (1)
 	//{
-		////if(dht11ReadTempRH(&rSensor))
-		////{
-			////DDRB |= 1<<PINB4;
-			////PORTB = 1 << PINB4; //Turns ON All LEDs
-			/////* Delay for 2000 to allow next read */
-			//////milli_delay(500);
-		////}
 		//if (sensorRead(&soilSensor))
 		//{
 			//moisture = sensorGet(&soilSensor); 
 		//}
 	//}
-}
-
-void tempCallBack(uint8_t *count)
-{
-	alarmCount++;
-	if(alarmCount == 3)
-	{
-		uint8_t at = 8;
-		at *=5;
-	}
-}
-
-	
+	//
+	///* Initialize sensors */
+	//dht11Init(&rSensor);
+	//int8_t temperature = 0;
+	//int8_t humidity = 0;
+	//while (1)
+	//{
+		//if(dht11ReadTempRH(&rSensor))
+		//{
+			//temperature = dht11GetTemp(&rSensor);
+			//humidity = dht11GetRH(&rSensor); //Turns ON All LEDs
+		///* Delay for 2000 to allow next read */
+		////milli_delay(500);
+		//}
+	//}
