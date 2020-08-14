@@ -38,12 +38,13 @@
 #include "timer.h"
 #include "rtc.h"
 
-ISR(INT0_vect)
+ISR(PCINT1_vect)
 {
-
-	/* Insert your EXINT/INT/0 interrupt handling code here */
-	AxInterruptCB();
-	
+	/* Insert your pin change 1 interrupt handling code here */
+	//if (!(PINC & (1 << PINC3)))
+	//{
+		//AxInterruptCB();
+	//}
 }
 ISR(TIMER1_CAPT_vect)
 {
