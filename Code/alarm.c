@@ -43,7 +43,11 @@ void alarmSetCB(alarm_t *alarmP, void (*funcP)(void *objP), void *objP)
 /* Execute an alarm's callback function */
 void alarmExecuteCB(alarm_t* alarmP)
 {
-	alarmP->alarmCB.alarmOnCB(alarmP->alarmCB.objP);
+	if (alarmP->alarmCB.alarmOnCB != NULL)
+	{
+		alarmP->alarmCB.alarmOnCB(alarmP->alarmCB.objP);
+	}
+	
 }
 
 /************************************************************************/
