@@ -42,7 +42,6 @@ typedef struct dht11_sensor_s
 {
 	uint8_t temperature;
 	uint8_t humidity;
-	uint8_t pin;
 	enum dht11_states_e state;
 	uint8_t errorCounter;
 	uint8_t errorList[ERROR_LIST_SIZE];
@@ -51,8 +50,8 @@ typedef struct dht11_sensor_s
 /************************************************************************/
 /*							Public Interfaces    	                    */
 /************************************************************************/
-void dht11Init(dht11_sensor_t *sensorP, uint8_t pinNum);
+void dht11Init(dht11_sensor_t *sensorP);
 uint8_t dht11GetTemp(dht11_sensor_t *sensorP);
 uint8_t dht11GetRH(dht11_sensor_t *sensorP);
-bool dht11ReadTempRH(dht11_sensor_t *sensorP);
+bool dht11Poll(dht11_sensor_t *sensorP);
 #endif /* DHT11_H_ */
