@@ -41,9 +41,8 @@
 static void lcdWrite(unsigned char data, uint8_t rsFlag);
 static uint8_t lcdRead(uint8_t rsFlag);
 
-void lcdInit(volatile uint8_t *dataDDR,volatile uint8_t *dataPort,volatile uint8_t *ctrlDDR, volatile uint8_t *ctrlPort, uint8_t *pinArray)
+void lcdInit()
 {
-
 	/* Set Data Direction for Data Ports and Ctrl Pins */
 	LCD_DATA_DDR = 0xFF;
 	LCD_DATA_PORT = 0x00;
