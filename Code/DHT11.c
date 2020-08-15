@@ -72,9 +72,9 @@ void dht11Init(dht11_sensor_t *sensorP)
 	
 	/* Build and print humidity symbol*/
 	lcdBuildSym(humiditySymLoc,humiditySym);
-	lcdSetDDRAMAdrr(1,7);
+	lcdSetDDRAMAdrr(1,6);
 	lcdWriteSymbol(humiditySymLoc);
-	lcdSetDDRAMAdrr(1,10);
+	lcdSetDDRAMAdrr(1,9);
 	lcdWriteString("%");
 	
 	/* Print initial values of Temp and Humidity. Will both be 0 */
@@ -264,7 +264,7 @@ static void printTempRH(uint8_t temp, uint8_t humidity)
 	snprintf(buff,20,"%d",(uint8_t)((temp * 1.8) + 32));
 	lcdWriteString(buff);
 	/* Print humidity */
-	lcdSetDDRAMAdrr(1,8);
+	lcdSetDDRAMAdrr(1,7);
 	snprintf(buff,20,"%d",humidity);
 	lcdWriteString(buff);
 }
