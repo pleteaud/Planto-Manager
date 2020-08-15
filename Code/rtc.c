@@ -378,20 +378,19 @@ void printTime(void)
 	}
 	/* Set cursor to (0,7) to Set Date/month/year in LCD */
 	lcdSetDDRAMAdrr(0,8);
-	if ((rtcMan.time[TIME_UNITS_MO_CEN] & 0x1F) < 0x09)
-	{
-		lcdWriteString("0");
-	}
+	if ((rtcMan.time[TIME_UNITS_MO_CEN] & 0x1F) < 0x09) {lcdWriteString("0");}
 	snprintf(buff,20,"%x/", rtcMan.time[TIME_UNITS_MO_CEN] & 0x1F);
 	lcdWriteString(buff);
+	
+	if(rtcMan.time[TIME_UNITS_DT] < 10){lcdWriteString("0");}
 	snprintf(buff,20,"%x/", rtcMan.time[TIME_UNITS_DT]);
 	lcdWriteString(buff);
+	
+	if(rtcMan.time[TIME_UNITS_YR] < 10){lcdWriteString("0");}
 	snprintf(buff,20,"%x", rtcMan.time[TIME_UNITS_YR]);
 	lcdWriteString(buff);
-	/* Return Cursor Home */
-	lcdReturnHome();
+	
 }
-
 /************************************************************************/
 /*					Private Functions Implementation			        */
 /************************************************************************/
