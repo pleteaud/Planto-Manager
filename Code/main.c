@@ -11,15 +11,14 @@ int main(void)
 	lcdInit();	
 	/* Initialize temp and soil sensors */
 	dht11Init(&rSensor);
-	sensorInit(&soilSensor,0);
-	sensorPower(true);
+	soilSensInit(&soilSensor);
+	soilSenCalibrate(&soilSensor);
 	/* Initialize buffer */
 	bufferInit(retrieveActiveBuffer());
 	/* Initialize cmd procedure */
 	cmdProcInit();
 	/* Initialize Master I2C */
 	i2cMasterInit(DS3231_SLAVE_ADDR);
-	
 	/* Initialize and Configure RTC */
 	rtcInit();
 	/* Set time registers */
@@ -33,7 +32,7 @@ int main(void)
 		}
 	}
 	
-	uint8_t initialTime[7] = {45,30,14,WED,12,AUG,20};
+	uint8_t initialTime[7] = {50,5,14,FRI,14,AUG,20};
 	if(rtcSetTime(retrieveActiveRTC(),initialTime))
 	{
 		/* Wait till time is set */
@@ -45,7 +44,7 @@ int main(void)
 	}
 
 	/* Set Alarm 2 to occur every minute */
-	uint8_t a2Time[4] = {00, 31, 23, 01};
+	uint8_t a2Time[4] = {00, 00, 00, 00};
 	if(rtcSetAlarm(retrieveActiveRTC(),ALARM_2,a2Time,A2_MATCH_ONCE_PER_MIN))
 	{
 		/* Wait till a2 is set */
@@ -56,8 +55,9 @@ int main(void)
 		}
 	}
 	/* Set Alarm 1 to occur every minute */
-	uint8_t a1Time[4] = {00, 00, 00, 01};
-	if(rtcSetAlarm(retrieveActiveRTC(),ALARM_1,a1Time,A1_MATCH_SEC))
+	uint8_t a1Time[4] = {00, 6, 00, 01};
+	alarmSetCB(rtcGetAlarm(retrieveActiveRTC(),ALARM_1), alarmTiggerCB, NULL);
+	if(rtcSetAlarm(retrieveActiveRTC(),ALARM_1,a1Time,A1_MATCH_MIN_SEC))
 	{
 		/* Wait till a1 is set */
 		while (!rtcIsFree(retrieveActiveRTC()))
@@ -67,7 +67,7 @@ int main(void)
 		}
 	}
 	
-	if (rtcSetCtrlReg(retrieveActiveRTC(), rtcGetCtrlReg(retrieveActiveRTC()) | AI1E_FLAG))
+	if (rtcSetCtrlReg(retrieveActiveRTC(), rtcGetCtrlReg(retrieveActiveRTC()) | AI2E_FLAG | AI1E_FLAG))
 	{
 		/* Wait till reg is set */
 		while (!rtcIsFree(retrieveActiveRTC()))
@@ -92,6 +92,7 @@ int main(void)
 		rtcPoll();
 		cmdProcCtrPoll();
 		dht11Poll(&rSensor);
+		soilSenPoll(&soilSensor);
 	}
 
 	
@@ -120,12 +121,12 @@ int main(void)
 //}
 //double moisture;
 	///* Test Calibration function */
-	//sensorCalibrate(&soilSensor);
+	//soilSenCalibrate(&soilSensor);
 	//while (1)
 	//{
 		//if (sensorRead(&soilSensor))
 		//{
-			//moisture = sensorGet(&soilSensor); 
+			//moisture = soilSenGetMoisture(&soilSensor); 
 		//}
 	//}
 	//
