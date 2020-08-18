@@ -1,2 +1,2 @@
 # Plant-Manager
-Embedded project to take care of plants raised in a pot. Device is able to monitor room temperature, relative humidity, and soil moisture.
+This is an embedded project aimed at monitoring and caring for a plant raised in a pot. Device is able to monitor room temperature, relative humidity, and soil moisture. Given the simplicity of task and the low cost, the firmware was developed on an Atmega328P. The temperature and relative humidity was measured using the DHT11. The soil moisture was measured using a personally designed sensor influenced by the Grove Capacitor Soil Moisture Sensor. A 16x2 Character LCD (ADM1602K-NSW-FBS) was used to display relevant information.
