@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE eagle SYSTEM "eagle.dtd">
-<eagle version="9.6.1">
+<eagle version="9.6.2">
 <drawing>
 <settings>
 <setting alwaysvectorfont="no"/>
@@ -91,8 +91,8 @@
 <dimension x1="38.1" y1="-12.7" x2="165.1" y2="-12.7" x3="101.6" y3="-19.939" textsize="1.778" layer="47" unit="mil"/>
 <dimension x1="0" y1="38.1" x2="0" y2="0" x3="-6.35" y3="19.05" textsize="1.778" layer="47" unit="mil"/>
 <dimension x1="38.1" y1="50.8" x2="38.1" y2="38.1" x3="0.508" y3="44.45" textsize="1.778" layer="47" unit="mil"/>
-<text x="-28.15381875" y="-25.7835" size="1.778" layer="144">LAYER-STACK</text>
-<text x="-18.37481875" y="-28.7172" size="1.778" layer="145">01-16</text>
+<text x="45.76018125" y="-26.2915" size="1.778" layer="144">LAYER-STACK</text>
+<text x="55.53918125" y="-29.2252" size="1.778" layer="145">01-16</text>
 <wire x1="24.765" y1="30.861" x2="24.765" y2="29.845" width="0.1016" layer="145"/>
 <wire x1="24.257" y1="30.353" x2="25.273" y2="30.353" width="0.1016" layer="145"/>
 <wire x1="13.462" y1="34.798" x2="13.462" y2="33.782" width="0.1016" layer="145"/>
@@ -1903,7 +1903,7 @@ design rules under a new name.</description>
 <attribute name="OC_NEWARK" value="38C0355" x="2.921" y="19.05" size="1.778" layer="27" rot="R270" display="off"/>
 <attribute name="POPULARITY" value="21" x="2.921" y="19.05" size="1.778" layer="27" rot="R270" display="off"/>
 </element>
-<element name="DRILEGEND" library="drilegend" package="DRILEGEND" value="" x="-9.48481875" y="-25.783490625" smashed="yes"/>
+<element name="DRILEGEND" library="drilegend" package="DRILEGEND" value="" x="64.42918125" y="-26.291490625" smashed="yes"/>
 <element name="R8" library="rcl" library_urn="urn:adsk.eagle:library:334" package="R1206" package3d_urn="urn:adsk.eagle:package:23540/2" value="1M" x="33.274" y="4.572" smashed="yes">
 <attribute name="NAME" x="32.512" y="5.715" size="1.016" layer="25" font="vector" ratio="17"/>
 <attribute name="POPULARITY" value="19" x="33.274" y="4.572" size="1.778" layer="27" display="off"/>

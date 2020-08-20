@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE eagle SYSTEM "eagle.dtd">
-<eagle version="9.6.1">
+<eagle version="9.6.2">
 <drawing>
 <settings>
 <setting alwaysvectorfont="no"/>
@@ -8402,9 +8402,9 @@ Source: http://cache.national.com/ds/LM/LM158.pdf</description>
 <sheet>
 <plain>
 <text x="-50.8" y="157.48" size="2.54" layer="97">Buffer (Voltage Follower)</text>
-<text x="-218.44" y="162.56" size="3.81" layer="97">6.67kHz Square Wave
-60us  HIGH 
-90us LOW </text>
+<text x="-218.44" y="170.18" size="3.302" layer="97">6.4kHz  PWM Nominally
+81.0us  HIGH Nominally 
+75.2us  LOW Nominally</text>
 <wire x1="-114.3" y1="185.42" x2="-114.3" y2="83.82" width="0.1524" layer="97" style="shortdash"/>
 <wire x1="-114.3" y1="83.82" x2="-220.98" y2="83.82" width="0.1524" layer="97" style="shortdash"/>
 <wire x1="-220.98" y1="83.82" x2="-220.98" y2="185.42" width="0.1524" layer="97" style="shortdash"/>
@@ -8413,7 +8413,7 @@ Source: http://cache.national.com/ds/LM/LM158.pdf</description>
 Non-inverting Input and GND
 C = Ks * 5.208pF
 Ks (Solder mask Dielectric constant) = 3.8</text>
-<text x="-33.02" y="101.6" size="2.54" layer="97">Unused amplication pin</text>
+<text x="-33.02" y="101.6" size="2.54" layer="97">Unused OP-Amp pins</text>
 </plain>
 <instances>
 <instance part="U1" gate="A" x="-172.72" y="134.62" smashed="yes">
