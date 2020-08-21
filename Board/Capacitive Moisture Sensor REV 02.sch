@@ -75,6 +75,7 @@
 <layer number="102" name="Changes" color="12" fill="1" visible="yes" active="yes"/>
 </layers>
 <schematic xreflabel="%F%N/%S.%C%R" xrefpart="/%S.%C%R">
+<description>Schematic of a soil moisture sensor inspired by the Grove Capacitor Soil Moisture Sensor</description>
 <libraries>
 <library name="supply1" urn="urn:adsk.eagle:library:371">
 <description>&lt;b&gt;Supply Symbols&lt;/b&gt;&lt;p&gt;
@@ -8400,6 +8401,7 @@ Source: http://cache.national.com/ds/LM/LM158.pdf</description>
 </parts>
 <sheets>
 <sheet>
+<description>Schematic of a soil moisture sensor inspired by the Grove Capacitor Soil Moisture Sensor</description>
 <plain>
 <text x="-50.8" y="157.48" size="2.54" layer="97">Buffer (Voltage Follower)</text>
 <text x="-218.44" y="170.18" size="3.302" layer="97">6.4kHz  PWM Nominally
@@ -8821,16 +8823,6 @@ Ks (Solder mask Dielectric constant) = 3.8</text>
 <junction x="-38.1" y="93.98"/>
 </segment>
 </net>
-</nets>
-</sheet>
-<sheet>
-<plain>
-</plain>
-<instances>
-</instances>
-<busses>
-</busses>
-<nets>
 </nets>
 </sheet>
 </sheets>
