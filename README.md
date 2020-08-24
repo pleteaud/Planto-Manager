@@ -9,7 +9,7 @@ This is an embedded project aimed at monitoring and caring for a potted plant. D
 ## Images:
 
 ### Planto Manager System 
-![Planto Manager System ](https://raw.githubusercontent.com/pleteaud/Planto-Manager/master/Pictures/Planto%20Manager%20Modules%20Connected.jpg)
+![Planto Manager System](https://raw.githubusercontent.com/pleteaud/Planto-Manager/master/Pictures/Planto%20Manager%20Modules%20Connected.jpg)
 
 ### Planto Manager System Wiring
 ![Planto Manager System Wiring](https://raw.githubusercontent.com/pleteaud/Planto-Manager/master/Pictures/Planto%20Manager%20Schematic.png)
@@ -17,7 +17,10 @@ This is an embedded project aimed at monitoring and caring for a potted plant. D
 ### Soil Moisture Sensor PCB Layout
 ![Soil Moisture Sensor PCB Layout](https://raw.githubusercontent.com/pleteaud/Planto-Manager/master/Pictures/Soil%20Moisture%20PCB%20Layout.png)
 
-### Soil Moisture Sensor PCB Brought Up 
-![Soil Moisture Sensor PCB Brough Up](https://raw.githubusercontent.com/pleteaud/Planto-Manager/master/Pictures/Soil%20Moisture%20Brought%20Up%20Board.jpg)
+### Soil Moisture Sensor Reading (Dry Case)
+![Soil Moisture Sensor Reading (Dry Case)](https://raw.githubusercontent.com/pleteaud/Planto-Manager/master/Pictures/Soil%20Moisture%20Sensor%20Reading%20(Dry%20Case).jpg)
+
+### Soil Moisture Sensor Reading (Moist Case)
+![Soil Moisture Sensor Reading (Moist Case)](https://raw.githubusercontent.com/pleteaud/Planto-Manager/master/Pictures/Soil%20Moisture%20Sensor%20Reading%20(Moist%20Case).jpg)
 
 ## Future Goal
