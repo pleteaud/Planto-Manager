@@ -18,10 +18,10 @@
 #include "stdio.h"
 
 /* setup port */
-#define DHT_DDR							DDRB
-#define DHT_PORT						PORTB
-#define DHT_PIN							PINB
-#define DHT_PIN_NUM						PB3
+#define DHT_DDR							DDRC
+#define DHT_PORT						PORTC
+#define DHT_PIN							PINC
+#define DHT_PIN_NUM						PINC1
 
 /* Bits/Bytes info */
 #define NUM_BITS_TX						(0x28) /* 40 bits */
@@ -61,7 +61,7 @@ void dht11Init(dht11_sensor_t *sensorP)
 	/* Delay a few seconds to allow dht11 to stabilize */
 	milli_delay(4000);
 	
-	/* Build and print themometer and degree symbol*/
+	/* Build and print themometer and degree symbol */
 	lcdBuildSym(thermSymLoc,thermoSym);
 	lcdBuildSym(degreeSymLoc,degreeSym);
 	lcdSetDDRAMAdrr(1,0);
@@ -174,7 +174,7 @@ static comm_status_t getdata(uint8_t *temperature, uint8_t *humidity)
 	
 	/* Send Read Request to DHT11: low for at least 20ms */
 	DHT_PORT &= ~(1 << DHT_PIN_NUM);
-	milli_delay(20);
+	milli_delay(30);
 	
 	/* Pull pin up high to transfer control of data pin to dht11 */
 	DHT_PORT |= (1 << DHT_PIN_NUM); 
