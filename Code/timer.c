@@ -25,7 +25,7 @@ void startMillisTimer()
 	/*prescale by 1024 */
 	TCCR1B = 0x05;
 	/* Output compare A: 0x12 == approx 1.5sec*/
-	OCR1A = 16;
+	OCR1A = 15;
 	/* Enable Output compare match interrupt */
 	TIMSK1 |= (1 << OCIE1A);
 	/* Restart tick count to 0 */
@@ -67,7 +67,7 @@ void milli_delay(int milliseconds)
 	short currTime = 0;
 	while(currTime < milliseconds)
 	{
-		while(TCNT1 < 16);
+		while(TCNT1 < 15);
 		TCNT1 = 0;
 		currTime++;
 	}
