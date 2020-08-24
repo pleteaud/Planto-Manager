@@ -8,6 +8,9 @@ This is an embedded project aimed at monitoring and caring for a potted plant. D
 
 ## Images:
 
+### Planto Manager System 
+![Planto Manager System ](https://raw.githubusercontent.com/pleteaud/Planto-Manager/master/Pictures/Planto%20Manager%20Modules%20Connected.jpg)
+
 ### Planto Manager System Wiring
 ![Planto Manager System Wiring](https://raw.githubusercontent.com/pleteaud/Planto-Manager/master/Pictures/Planto%20Manager%20Schematic.png)
 
