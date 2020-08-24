@@ -7,20 +7,55 @@ int main(void)
 {
 	/* Initializes MCU, drivers and middleware */
 	atmel_start_init();
-	/* Initialize LCD */
-	lcdInit();	
-	/* Initialize temp and soil sensors */
-	dht11Init(&rSensor);
-	soilSensInit(&soilSensor);
-	soilSenCalibrate(&soilSensor);
+	
 	/* Initialize buffer */
 	bufferInit(retrieveActiveBuffer());
 	/* Initialize cmd procedure */
 	cmdProcInit();
 	/* Initialize Master I2C */
 	i2cMasterInit(DS3231_SLAVE_ADDR);
+	
+	/* Initialize LCD */
+	lcdInit();	
+	/* Shift Display left 16 times as information about */
+	/* sensors/rtc initialization will be printed there */
+	for (int i = 0; i<16; i++)
+	{
+		lcdCursorDisplayShift(8);
+	}
+	
+	/* Indicate dht11 is being initialized */
+	lcdSetDDRAMAdrr(0,16);
+	lcdWriteString("  Initializing  ");
+	lcdSetDDRAMAdrr(1,16);
+	lcdWriteString(" Temp & Hum Sen ");
+	/* Initialize dht11 */
+	dht11Init(&rSensor);
+	
+	 ///* Initialize soil moisture sensor */
+	//lcdSetDDRAMAdrr(0,16);
+	//lcdWriteString("  Initializing  ");
+	//lcdSetDDRAMAdrr(1,16);
+	//lcdWriteString(" Soil Moist Sen ");
+	//milli_delay(500);
+	//soilSensInit(&soilSensor);
+	//milli_delay(1000);
+	//soilSenCalibrate(&soilSensor);
+	//milli_delay(1000);
+	
 	/* Initialize and Configure RTC */
+	lcdSetDDRAMAdrr(0,16);
+	lcdWriteString("  Initializing  ");
+	lcdSetDDRAMAdrr(1,16);
+	lcdWriteString(" Real Time Clock ");
+	milli_delay(1000);
 	rtcInit();
+	/* Shift Display right 16 times as the  */
+	/* primary information is printed there */
+	for (int i = 0; i<16; i++)
+	{
+		lcdCursorDisplayShift(12);
+	}
 	/* Set time registers */
 	if (rtcSetCtrlReg(retrieveActiveRTC(), INTCN_FLAG))
 	{
@@ -32,7 +67,7 @@ int main(void)
 		}
 	}
 	
-	uint8_t initialTime[7] = {50,5,14,FRI,14,AUG,20};
+	uint8_t initialTime[7] = {00,00,16,MON,24,AUG,20};
 	if(rtcSetTime(retrieveActiveRTC(),initialTime))
 	{
 		/* Wait till time is set */
@@ -56,8 +91,8 @@ int main(void)
 	}
 	/* Set Alarm 1 to occur every minute */
 	uint8_t a1Time[4] = {00, 6, 00, 01};
-	alarmSetCB(rtcGetAlarm(retrieveActiveRTC(),ALARM_1), alarmTiggerCB, NULL);
-	if(rtcSetAlarm(retrieveActiveRTC(),ALARM_1,a1Time,A1_MATCH_MIN_SEC))
+	alarmSetCB(rtcGetAlarm(retrieveActiveRTC(),ALARM_1), NULL, NULL);
+	if(rtcSetAlarm(retrieveActiveRTC(),ALARM_1,a1Time,A1_MATCH_SEC))
 	{
 		/* Wait till a1 is set */
 		while (!rtcIsFree(retrieveActiveRTC()))
@@ -92,55 +127,7 @@ int main(void)
 		rtcPoll();
 		cmdProcCtrPoll();
 		dht11Poll(&rSensor);
-		soilSenPoll(&soilSensor);
 	}
 
 	
 }
-//int main(void)
-//{
-	///* Initializes MCU, drivers and middleware */
-	//atmel_start_init();
-	//
-	///* Initialize sensors */
-	//dht11Init(&rSensor);
-//
-	//int8_t temperature = 0;
-	//int8_t humidity = 0;
-	//volatile double moisture;
-	///* Test Calibration function */
-	//while (1)
-	//{
-		//if(dht11Poll(&rSensor))
-		//{
-			//temperature = dht11GetTemp(&rSensor);
-			//humidity = dht11GetRH(&rSensor);
-		//}
-	//
-	//}
-//}
-//double moisture;
-	///* Test Calibration function */
-	//soilSenCalibrate(&soilSensor);
-	//while (1)
-	//{
-		//if (sensorRead(&soilSensor))
-		//{
-			//moisture = soilSenGetMoisture(&soilSensor); 
-		//}
-	//}
-	//
-	///* Initialize sensors */
-	//dht11Init(&rSensor);
-	//int8_t temperature = 0;
-	//int8_t humidity = 0;
-	//while (1)
-	//{
-		//if(dht11ReadTempRH(&rSensor))
-		//{
-			//temperature = dht11GetTemp(&rSensor);
-			//humidity = dht11GetRH(&rSensor); //Turns ON All LEDs
-		///* Delay for 2000 to allow next read */
-		////milli_delay(500);
-		//}
-	//}
