@@ -11,14 +11,22 @@
 #include "Moisture_Sensor.h"
 #include "adc_basic.h"
 #include "LCD.h"
-#include "stdbool.h"
 #include "stdio.h"
+#include "timer.h"
+
 
 
 /* Setup relay port */
-#define RELAY_DDR					DDRB
-#define RELAY_PORT					PORTB
-#define RELAY_OUTOUT_PIN			PB4
+#define RELAY_DDR					DDRC
+#define RELAY_PORT					PORTC
+#define RELAY_OUTOUT_PIN			PINC2
+
+/* Setup Calibration Button */
+#define CAL_BTN_DDR			DDRB
+//#define CAL_BTN_PORT		PORTB
+#define CAL_BTN_INPUT_PIN	PINB
+#define CAL_BTN_PIN_NUM		PINB3
+
 
 #define SENS_ADC_CHAN_NUM			(0x00)
 
@@ -39,6 +47,8 @@ uint8_t soilSenSymLoc = 5;
 
 static adc_irq_cb_t adcReadCompCB();
 static void printSoilMoist(uint8_t moisture);
+static void waitForBtnPress();
+
 
 /************************************************************************/
 /*                      Public Functions Implementations                */
@@ -62,7 +72,7 @@ void soilSenPwrRelay(bool relayState)
 /* Initialize moisture sensor object's data members */
 void soilSensInit(soil_moisture_sensor_t *sensorP)
 {
-	sensorP->state = MS_IDLE;
+	sensorP->state = MS_UNCALIBRATED;
 	sensorP->sampleNum = sensorP->timeStamp = 0;
 	sensorP->calibrateFlag = false;
 	/* Configure pin DDRx as output low for relay control */
@@ -71,6 +81,8 @@ void soilSensInit(soil_moisture_sensor_t *sensorP)
 	/* Register callback for ADC sensor reading completion */
 	ADC_0_register_callback(adcReadCompCB);
 	
+	/* Configure Calibration Button */
+	CAL_BTN_DDR &= ~(1 << CAL_BTN_PIN_NUM); // Intput pin 
 	/* Build and print water content symbol*/
 	lcdBuildSym(soilSenSymLoc,soilSenSymb);
 	lcdSetDDRAMAdrr(1,11);
@@ -87,129 +99,110 @@ double soilSenGetMoisture(soil_moisture_sensor_t *sensorP)
 /* Calibrate the upper and lower bound for soil moisture */
 void soilSenCalibrate(soil_moisture_sensor_t *sensorP)
 {
+	/* Determine the value of the moisture, when soil is dry (upper bound) */ 
 	sensorP->calibrateFlag = true;
+	sensorP->state = MS_IDLE;
 	soilSenPwrRelay(true);
-	/* Determine the value of the moisture, when soil is dry (upper bound) */
 	alarmTrigFlag = true;
-	while(!soilSenPoll(sensorP));
+	
+	/* Indicate to user now calibrating the value of the sensor when soil is dry */
+	lcdSetDDRAMAdrr(0,16);
+	lcdWriteString("Calibrating S-M:");
+	lcdSetDDRAMAdrr(1,16);
+	lcdWriteString("Maximum Dryness");
+	milli_delay(250);
+	/* Wait for user to press the calibration button to begin measurement */
+	waitForBtnPress();
+	lcdSetDDRAMAdrr(0,16);
+	lcdWriteString("  Release Button  ");
+	lcdSetDDRAMAdrr(1,16);
+	lcdWriteString("To Begin Reading");
+	/* Give user a second to release button */
+	milli_delay(1000);
+	
+	/* Read sensor value */
+	readSens(sensorP);
 	/* Store ADC value when soil is dry */
 	soilDryVal = soilSenGetMoisture(sensorP);
+	
+	
 	/* Determine the value of the moisture. when soil is wet (lower bound) */
 	soilSenPwrRelay(true);
 	alarmTrigFlag = true;
-	while(!soilSenPoll(sensorP));
+	
+	/* Indicate to user now calibrating the value of the sensor when soil is wet */
+	lcdSetDDRAMAdrr(0,16);
+	lcdWriteString("Calibrating S-M:");
+	lcdSetDDRAMAdrr(1,16);
+	lcdWriteString("Maximum Wetness ");
+	milli_delay(250);
+	/* Wait for user to press the calibration button to begin measurement */
+	waitForBtnPress();
+	lcdSetDDRAMAdrr(0,16);
+	lcdWriteString("  Release Button  ");
+	lcdSetDDRAMAdrr(1,16);
+	lcdWriteString("To Begin Reading");
+	/* Give user a second to release button */
+	milli_delay(1000);
+	
+	/* Read sensor value */
+	readSens(sensorP);
 	/* Store ADC value when soil is wet */
 	soilWetVal = soilSenGetMoisture(sensorP);
+	
 	/* Update range for linear transformation */
 	oldRange = soilDryVal-soilWetVal;
+	if (oldRange == 0)
+	{
+		/* Indicate to user there was an error calibrating sensor and set state to "Uncalibrated" to prevent invalid math operations (e.g 0/0) */
+		lcdSetDDRAMAdrr(0,16);
+		lcdWriteString("Calibrating S-M:");
+		lcdSetDDRAMAdrr(1,16);
+		lcdWriteString("Error: Bad Range");
+		sensorP->state = MS_UNCALIBRATED;
+	}
+	else
+	{
+		/* Indicate successful calibration*/
+		lcdSetDDRAMAdrr(0,16);
+		lcdWriteString("Calibrating S-M:");
+		lcdSetDDRAMAdrr(1,16);
+		lcdWriteString("    Complete    ");
+	}
 	sensorP->calibrateFlag = false;
 	soilSenPwrRelay(false);
 	return;
 }
 
-/* Control and monitor communication procedure between chip and DHT11 */
-/* If return is false, reading procedure isn't complete*/
-/* If true, the sensor's moisture value is updated */
-bool soilSenPoll(soil_moisture_sensor_t *sensorP)
+void readSens(soil_moisture_sensor_t *sensorP)
 {
-	bool status = false;
-	switch (sensorP->state)
+	soilSenPwrRelay(true);
+	milli_delay(10);
+	/* Start to read */
+	for (int i = 0; i < 10; i++)
 	{
-		case MS_IDLE:
-		{
-			if (alarmTrigFlag)
-			{
-				soilSenPwrRelay(true);
-				/* Enable ADC */
-				ADC_0_enable();
-				/* Wait 5 ms to allow sensor to stabilize */
-				sensorP->timeStamp = 0;
-				startMillisTimer();
-				sensorP->state = MS_STABLILIZING;
-				alarmTrigFlag = false;
-			}
-			break;
-		}
-		case MS_STABLILIZING:
-		{
-			/* Start to read sensor if we're done stabilizing */
-			if (getMillis()-sensorP->timeStamp>=5)
-			{
-				sensorP->timeStamp=getMillis();
-				/* Initiate an ADC Conversion */
-				ADC_0_start_conversion(SENS_ADC_CHAN_NUM);
-				/* Begin reading */
-				sensorP->moisture = 0;
-				sensorP->state = MS_READ;
-			}
-			break;
-		}
-		case MS_READ:
-		{
-			/* Sample for every 3ms, for 15ms */
-			if (getMillis()-sensorP->timeStamp>=3 && sampleFlag)
-			{
-				sensorP->timeStamp = getMillis();
-				
-				/* Discard 0th sample since first read after enabling ADC may be inaccurate due to initializing analog circuitry */
-				if(sensorP->sampleNum > 0)
-				{
-					sensorP->moisture += ADC_0_get_conversion_result();
-				}
-				
-				/* If last sample, stop reading */
-				if (sensorP->sampleNum == 5)
-				{
-					/* Disable ADC*/
-					ADC_0_disable();
-					/* Restart ADC value */
-					sensorP->sampleNum = 0;
-					sensorP->state = MS_READ_COMPLETE;
-					break;
-				}
-				
-				sensorP->sampleNum++;
-				sampleFlag = false;
-				ADC_0_start_conversion(SENS_ADC_CHAN_NUM);
-			}
-			
-			break;
-		}
-		case MS_READ_COMPLETE:
-		{
-			/* Stop and reset timer */
-			stopMillisTimer();
-			sensorP->timeStamp=0;
-			/* Turn off Sensor */
-			soilSenPwrRelay(false);
-			status = true;
-			
-			/* Take the average of the readings */
-			sensorP->moisture /= 5;
-			
-			/* Set state to IDLE */
-			sensorP->state = MS_IDLE;
-				
-			/* If we are calibrating, don't print and leave moisture value as an average */
-			if(sensorP->calibrateFlag){break;}
-			
-			/* Convert average moisture calculated to a value between 0-100 if not calibrating */
-			/* If value is closer to 0, soil is moist. If value is closer to 100, soil is dry */
-			double newMin = 0, newMax = 100;
-			double newRange = newMax - newMin; /* 0-100 */
-			/* Translate old moisture reading to a number between 0-100 */
-			sensorP->moisture = ((sensorP->moisture-soilWetVal)/oldRange)*(newRange) + newMin;
-			
-			/* Change state back to IDLE and power off sensor */
-			sensorP->state = MS_IDLE;
-			/* Print Moisture on LCD */
-			printSoilMoist(sensorP->moisture);
-			break;
-		}
-		default:
-		break;
+		/* Initiate an ADC Conversion */
+		ADC_0_start_conversion(SENS_ADC_CHAN_NUM);
+		sensorP->moisture += ADC_0_get_conversion(SENS_ADC_CHAN_NUM);
 	}
-	return status;
+	/* Turn off Sensor */
+	soilSenPwrRelay(false);
+	/* Take the average of the readings */
+
+	sensorP->moisture /= 5;
+	
+	/* If we are calibrating, don't print and leave moisture value as an average */
+	if(sensorP->calibrateFlag){return;}
+	
+	/* Convert average moisture calculated to a value between 0-100 */
+	/* If value is closer to 0, soil is moist. If value is closer to 100, soil is dry */
+	double newMin = 0, newMax = 100;
+	double newRange = newMax - newMin; /* 0-100 */
+	sensorP->moisture = ((sensorP->moisture-soilWetVal)/oldRange)*(newRange) + newMin;
+	
+	/* Print Moisture on LCD */
+	printSoilMoist((uint8_t)sensorP->moisture);
+
 }
 
 /************************************************************************/
@@ -222,10 +215,7 @@ static adc_irq_cb_t adcReadCompCB()
 {
 	sampleFlag = true;
 }
-void alarmTiggerCB(void *p)
-{
-	alarmTrigFlag = true;
-}
+
 static void printSoilMoist(uint8_t moisture)
 {
 	char buff[20];
@@ -235,4 +225,26 @@ static void printSoilMoist(uint8_t moisture)
 	snprintf(buff,20,"%d", moisture);
 	lcdWriteString(buff);
 	lcdWriteString("%");	
+}
+
+/* Wait for button to have been pressed for at least 25ms */
+static void waitForBtnPress()
+{
+	
+	startMillisTimer();
+	uint16_t timePressed = 0;
+	uint8_t counter = 0;
+	while(counter < 5)
+	{
+		uint16_t x = getMillis();
+		if (x-timePressed >= 5)
+		{
+			if (!(CAL_BTN_INPUT_PIN & (1<<CAL_BTN_PIN_NUM)))
+			{
+				counter++;
+				timePressed = x;
+			}
+		}
+	}
+	stopMillisTimer();
 }
