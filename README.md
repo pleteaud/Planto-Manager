@@ -24,7 +24,7 @@ This is an embedded project aimed at monitoring and caring for a potted plant. D
 ![Soil Moisture Sensor Reading (Moist Case)](https://raw.githubusercontent.com/pleteaud/Planto-Manager/master/Pictures/Soil%20Moisture%20Sensor%20Reading%20(Moist%20Case).jpg)
 
 ## Future Goal
-- [ ] Switch to Adafruit BME280 sensor since it supports I2C. This will increased available pins and reduce the timing issues encountered with the DHT11
+- [ ] Switch to Adafruit BME280 sensor since it supports I2C. This will free up pins and reduce the timing issues faced with the DHT11
 - [ ] Implement a Keypad module to allow user to inter inferace with device out of debug mode.
 - [ ] Fix Soil moisture sensor code bugs.
 - [ ] Implement I2C I/O Expander (MCP23017-E/SP-ND) to reduce number of pins used by the LCD and Keypad
