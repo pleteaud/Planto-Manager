@@ -164,8 +164,6 @@ void lcdBuildSym(uint8_t location, unsigned char *ptr)
 			lcdWrite(ptr[i],DATA_FLAG);
 		}
 	}
-	/* Return Cursor back Home */ 
-	lcdReturnHome();
 }
 void lcdWriteSymbol(uint8_t location)
 {
