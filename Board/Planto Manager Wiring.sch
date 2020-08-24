@@ -11400,8 +11400,6 @@ Handy to use on those pins that you want to mark as NC on a schematic.</descript
 <part name="U$13" library="Philbywhizz" deviceset="NOCONNECTION" device=""/>
 <part name="U$14" library="Philbywhizz" deviceset="NOCONNECTION" device=""/>
 <part name="U$15" library="Philbywhizz" deviceset="NOCONNECTION" device=""/>
-<part name="U$16" library="Philbywhizz" deviceset="NOCONNECTION" device=""/>
-<part name="U$17" library="Philbywhizz" deviceset="NOCONNECTION" device=""/>
 <part name="GND16" library="supply1" library_urn="urn:adsk.eagle:library:371" deviceset="GND" device=""/>
 <part name="P+4" library="supply1" library_urn="urn:adsk.eagle:library:371" deviceset="+5V" device=""/>
 <part name="P+5" library="supply1" library_urn="urn:adsk.eagle:library:371" deviceset="+5V" device=""/>
@@ -11409,6 +11407,9 @@ Handy to use on those pins that you want to mark as NC on a schematic.</descript
 <part name="C10" library="rcl" library_urn="urn:adsk.eagle:library:334" deviceset="C-EU" device="C0805" package3d_urn="urn:adsk.eagle:package:23617/2" value=".1uF"/>
 <part name="GND18" library="supply1" library_urn="urn:adsk.eagle:library:371" deviceset="GND" device=""/>
 <part name="P+6" library="supply1" library_urn="urn:adsk.eagle:library:371" deviceset="+5V" device=""/>
+<part name="U$18" library="Philbywhizz" deviceset="NOCONNECTION" device=""/>
+<part name="U$16" library="Philbywhizz" deviceset="NOCONNECTION" device=""/>
+<part name="U$17" library="Philbywhizz" deviceset="NOCONNECTION" device=""/>
 </parts>
 <sheets>
 <sheet>
@@ -11717,8 +11718,6 @@ Ks (Solder mask Dielectric constant) = 3.8</text>
 <instance part="U$13" gate="G$1" x="177.8" y="53.34" smashed="yes"/>
 <instance part="U$14" gate="G$1" x="177.8" y="55.88" smashed="yes"/>
 <instance part="U$15" gate="G$1" x="60.96" y="53.34" smashed="yes"/>
-<instance part="U$16" gate="G$1" x="60.96" y="66.04" smashed="yes"/>
-<instance part="U$17" gate="G$1" x="60.96" y="68.58" smashed="yes"/>
 <instance part="GND16" gate="1" x="180.34" y="27.94" smashed="yes">
 <attribute name="VALUE" x="177.8" y="25.4" size="1.778" layer="96"/>
 </instance>
@@ -11741,6 +11740,9 @@ Ks (Solder mask Dielectric constant) = 3.8</text>
 <instance part="P+6" gate="1" x="30.48" y="66.04" smashed="yes">
 <attribute name="VALUE" x="27.686" y="66.548" size="1.778" layer="96"/>
 </instance>
+<instance part="U$18" gate="G$1" x="-15.24" y="7.62" smashed="yes"/>
+<instance part="U$16" gate="G$1" x="60.96" y="50.8" smashed="yes"/>
+<instance part="U$17" gate="G$1" x="60.96" y="48.26" smashed="yes"/>
 </instances>
 <busses>
 </busses>
@@ -11915,15 +11917,6 @@ Ks (Solder mask Dielectric constant) = 3.8</text>
 <pinref part="C10" gate="G$1" pin="1"/>
 <wire x1="30.48" y1="53.34" x2="30.48" y2="50.8" width="0.1524" layer="91"/>
 <pinref part="GND18" gate="1" pin="GND"/>
-</segment>
-</net>
-<net name="N$1" class="0">
-<segment>
-<pinref part="U$1" gate="G$1" pin="N.C."/>
-<wire x1="-15.24" y1="7.62" x2="43.18" y2="7.62" width="0.1524" layer="91"/>
-<pinref part="U1" gate="A" pin="PB3_(MOSI/OC2A/PCINT3)"/>
-<wire x1="60.96" y1="48.26" x2="43.18" y2="48.26" width="0.1524" layer="91"/>
-<wire x1="43.18" y1="7.62" x2="43.18" y2="48.26" width="0.1524" layer="91"/>
 </segment>
 </net>
 <net name="N$3" class="0">
@@ -12153,8 +12146,9 @@ Ks (Solder mask Dielectric constant) = 3.8</text>
 </segment>
 <segment>
 <pinref part="U1" gate="A" pin="PC0_(ADC0/PCINT8)"/>
-<wire x1="60.96" y1="63.5" x2="58.42" y2="63.5" width="0.1524" layer="91"/>
-<label x="58.42" y="63.5" size="1.778" layer="95" rot="R180" xref="yes"/>
+<wire x1="60.96" y1="63.5" x2="45.72" y2="63.5" width="0.1524" layer="91"/>
+<label x="45.72" y="81.28" size="1.778" layer="95" rot="R90" xref="yes"/>
+<wire x1="45.72" y1="63.5" x2="45.72" y2="81.28" width="0.1524" layer="91"/>
 </segment>
 </net>
 <net name="N$19" class="0">
@@ -12314,14 +12308,6 @@ Ks (Solder mask Dielectric constant) = 3.8</text>
 <pinref part="SUPPLY13" gate="G$1" pin="VCC"/>
 </segment>
 </net>
-<net name="N$27" class="0">
-<segment>
-<pinref part="R1" gate="G$1" pin="1"/>
-<wire x1="-7.62" y1="12.7" x2="-7.62" y2="10.16" width="0.1524" layer="91"/>
-<pinref part="U$1" gate="G$1" pin="DAT"/>
-<wire x1="-15.24" y1="10.16" x2="-7.62" y2="10.16" width="0.1524" layer="91"/>
-</segment>
-</net>
 <net name="RLY_CTRL" class="0">
 <segment>
 <pinref part="U$3" gate="G$1" pin="IN1"/>
@@ -12329,9 +12315,25 @@ Ks (Solder mask Dielectric constant) = 3.8</text>
 <label x="-50.8" y="-78.74" size="1.778" layer="95" rot="R180" xref="yes"/>
 </segment>
 <segment>
-<pinref part="U1" gate="A" pin="PB4_(MISO/PCINT4)"/>
-<wire x1="60.96" y1="50.8" x2="58.42" y2="50.8" width="0.1524" layer="91"/>
-<label x="58.42" y="50.8" size="1.778" layer="95" rot="R180" xref="yes"/>
+<pinref part="U1" gate="A" pin="PC2_(ADC2/PCINT10)"/>
+<wire x1="60.96" y1="68.58" x2="58.42" y2="68.58" width="0.1524" layer="91"/>
+<wire x1="58.42" y1="68.58" x2="58.42" y2="81.28" width="0.1524" layer="91"/>
+<label x="58.42" y="81.28" size="1.778" layer="95" rot="R90" xref="yes"/>
+</segment>
+</net>
+<net name="DHT_DATA" class="0">
+<segment>
+<pinref part="R1" gate="G$1" pin="1"/>
+<wire x1="-7.62" y1="12.7" x2="-7.62" y2="10.16" width="0.1524" layer="91"/>
+<pinref part="U$1" gate="G$1" pin="DAT"/>
+<wire x1="-15.24" y1="10.16" x2="-7.62" y2="10.16" width="0.1524" layer="91"/>
+<label x="-7.62" y="10.16" size="1.778" layer="95" xref="yes"/>
+</segment>
+<segment>
+<pinref part="U1" gate="A" pin="PC1_(ADC1/PCINT9)"/>
+<wire x1="60.96" y1="66.04" x2="53.34" y2="66.04" width="0.1524" layer="91"/>
+<label x="53.34" y="81.28" size="1.778" layer="95" rot="R90" xref="yes"/>
+<wire x1="53.34" y1="66.04" x2="53.34" y2="81.28" width="0.1524" layer="91"/>
 </segment>
 </net>
 </nets>
