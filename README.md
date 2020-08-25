@@ -29,3 +29,4 @@ This is an embedded project aimed at monitoring and caring for a potted plant. D
 - [ ] Fix Soil moisture sensor code bugs.
 - [ ] Implement I2C I/O Expander (MCP23017-E/SP-ND) to reduce number of pins used by the LCD and Keypad
 - [ ] Implement reworks and design upgrades to Soil Moisture Sensor
+- [ ] Design and build container for device 
