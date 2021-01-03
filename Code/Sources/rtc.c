@@ -17,380 +17,327 @@
 #include "LCD.h"
 #include "stdio.h"
 #include "port.h"
+#include "i2cMasterControl.h"
 
 
 #define INTCN_PIN		PINC	
 #define INTCN_PIN_NUM	PINC3
 
 
-/************************************************************************/
-/*                     Struct Implementation                            */
-/************************************************************************/
-struct rtc_manager_s 
+/* Commands data buffer sizes*/
+enum cmd_sizes
 {
-	enum rtc_state_e state;
-	uint8_t time[TIME_UNITS_TOTAL];
-	alarm_t alarm1;
-	alarm_t alarm2;
-	uint8_t ctrlReg;
-	uint8_t ctrlStatReg;
-	uint8_t agingOffsetReg;
-	uint16_t tempReg;
-	uint8_t errorCount;
-	uint8_t errorList[256];
+	READ_ALL_REGS_CMD_SIZE = 1,
+	SET_RTC_TIME_CMD_SIZE = 8,
+	SET_RTC_SEC_CMD_SIZE = 2,
+	SET_RTC_MIN_CMD_SIZE = 2,
+	SET_RTC_HR_CMD_SIZE = 2,
+	SET_RTC_DY_CMD_SIZE = 2,
+	SET_RTC_DT_CMD_SIZE = 2,
+	SET_RTC_MON_CEN_CMD_SIZE = 2,
+	SET_ALARM1_TIME_CMD_SIZE = 5,
+	SET_ALARM2_TIME_CMD_SIZE = 4,
+	SET_CONTROL_REG_CMD_SIZE = 2,
+	SET_STAT_REG_CMD_SIZE = 2,
 };
 
-/************************************************************************/
-/*                      Private Variables                               */
-/************************************************************************/
-static rtc_manager_t rtcMan;
-/* Custom Pattern byte for clock */
-unsigned char clockSymbol[] = {0x0,0xe,0x15,0x17,0x11,0xe,0x0,0x00};
-uint8_t clkSymLoc = 0;
-unsigned char calendarSymbol[] = {0x00,0x11,0x1F,0x13,0x1F,0x1F,0x00,0x00};
-uint8_t calSymLoc = 1;
+/* Command response data buffer size */
+enum resp_sizes
+{
+	READ_ALL_REGS_RESP_SIZE = 19 	
+};
 
 /************************************************************************/
 /*                      Private Function Declaration                    */
 /************************************************************************/
 static void configTime(uint8_t *time, uint8_t totTimeUnits);
+
 static void rtcAddError(rtc_manager_t *rtcP, enum rtc_errors_e error);
+
 static uint32_t configMatchingConditions(enum alarm_match_options_e matchFlag, enum alarm_pos_e pos);
+
 static bool verifyAxData(uint8_t *dataP, uint8_t *axTime, uint8_t len);
+
 static bool verifyCtrlReg(uint8_t *dataP, uint8_t ctrlReg);
+
+static void rtcUpdate(rtc_manager_t *rtcP, uint8_t regs[]);
+
+static bool rtcSetTimeRegs(rtc_manager_t *rtcP, uint8_t cmdBuffSize, uint8_t startAddr,
+						   uint8_t *time, uint8_t numTimeUnits);
+
 /************************************************************************/
 /*                      Public Functions Implementations                */
 /************************************************************************/
-/* Retrieve active RTC manager */
-rtc_manager_t* retrieveActiveRTC(void)
-{
-	return &rtcMan;
-}
 
 /* Initialize an rtc_manager_t object's data members with the exception of time */
-void rtcInit()
+void rtcInit(rtc_manager_t *rtcP)
 {
 	/* Initial value of Ctrl Reg 00x00100 */
-	rtcMan.ctrlReg |= INTCN_FLAG; 
-	/*Initial State of the Status Registers should be 0 */
-	rtcMan.ctrlStatReg = rtcMan.agingOffsetReg = rtcMan.tempReg = rtcMan.errorCount = 0;
-	rtcMan.state = RTC_IDLE;
+	rtcP->ctrlReg |= INTCN_FLAG; 
+	rtcSetCtrlReg(rtcP, INTCN_FLAG);
+	
+	/* Initial time on power up is 01/01/00 01 00:00:00 (DD/MM/YY DOW HH:MM:SS) */
+	for (uint8_t i = 0; i < TIME_UNITS_TOTAL; i++)
+	{
+		switch(i)
+		{
+			case TIME_UNITS_DY:
+				rtcP->time[i] = MON;
+				break;
+			case TIME_UNITS_MO_CEN:
+				rtcP->time[i] = JAN;
+				break;
+			case TIME_UNITS_DT:
+				rtcP->time[i] = 1;
+				break;
+			default:
+				rtcP->time[i] = 0;
+		}
+	}
+	
+	// Initial State of the Status Registers should be 0
+	rtcP->ctrlStatReg = rtcP->agingOffsetReg = rtcP->tempReg = rtcP->errorCount = 0;
+	
 	/* Initialize Alarm Objects */
-	alarmInit(&rtcMan.alarm1);
-	rtcMan.alarm1.matchFlag = A1_MATCH_DT_HR_MIN_SEC; /* 0 */
-	alarmInit(&rtcMan.alarm2);
-	rtcMan.alarm2.matchFlag = A2_MATCH_DT_HR_MIN; /* 0 */
-	rtcMan.errorList[256]= 0;
-	/* Build Clock Symbol */
-	lcdBuildSym(clkSymLoc,clockSymbol);
-	/* Print symbol */
-	lcdSetDDRAMAdrr(0,0);
-	lcdWriteSymbol(clkSymLoc);
-	/* Build Calendar Symbol */
-	lcdBuildSym(calSymLoc,calendarSymbol);
-	/* Print Symbol */
-	lcdSetDDRAMAdrr(0,7);
-	lcdWriteSymbol(calSymLoc);
-	/* Print initial time */
-	printTime();
-}
-void rtcSetAxCB(rtc_manager_t *rtcP,enum alarm_pos_e pos, void (*funcP)(void *objP), void *objP)
-{
-	if(pos == ALARM_1) 
-		alarmSetCB(&rtcP->alarm1,funcP,objP);
-	else 
-		alarmSetCB(&rtcP->alarm2,funcP,objP);
-}
-/* Indicate whether RTC is free and ready to be used */
-bool rtcIsFree(rtc_manager_t *rtcP)
-{
-	bool status;
-	status = (rtcP->state == RTC_IDLE) ? true : false;
-	return status;
-}
-
-/* Retrieve Control Register of RTC object*/
-uint8_t rtcGetCtrlReg(rtc_manager_t *rtcP)
-{
-	return rtcP->ctrlReg;
-}
-
-/* Retrieve Alarm of RTC object*/
-alarm_t* rtcGetAlarm(rtc_manager_t *rtcP, enum alarm_pos_e pos)
-{
-	return (pos == ALARM_1) ? &rtcP->alarm1 : &rtcP->alarm2; 
-}
-
-/* Polling function to navigate RTC object states and to execute corresponding actions */ 
-void rtcPoll(void)
-{
-	rtc_manager_t *rtcP = retrieveActiveRTC();
-	switch (rtcP->state)
-	{
-		case RTC_IDLE:
-			/* Check if INTCN was pulled low */
-			if (!(INTCN_PIN & (1<<INTCN_PIN_NUM)) && (rtcMan.ctrlReg & AI1E_FLAG || rtcMan.ctrlReg & AI2E_FLAG)) {rtcReadRegisters(rtcP);}
-			break;
-		case RTC_SETTING_A1:
-		case RTC_SETTING_A2:
-		case RTC_SETTING_CR:
-		case RTC_SETTING_SR:
-		case RTC_SETTING_TIME:
-			/* Check if command is over */
-			if(cmdPocRtnIsReady())
-			{
-				/* Clear buffer for next command */
-				bufferClear(retrieveActiveBuffer());
-				/* Change State to IDLE */
-				rtcP->state = RTC_IDLE;
-				/* We'll let READ Register command state handle verifying cmd has been successfully executed */
-			}
-			break;
-		case RTC_READING_ALL_REGS:
-			if(cmdPocRtnIsReady())
-			{
-				/* Update RTC time array */
-				uint8_t *dataP = bufferGetData(retrieveActiveBuffer(), sizeof(read_all_regs_resp_s));
-				for(int i = 0; i < TIME_UNITS_TOTAL; i++){rtcP->time[i] = *(dataP + i);}
-				/* Check see if errors in setting CR register */
-				if(!verifyCtrlReg(dataP + RTC_CTRL_ADDR,rtcP->ctrlReg)){rtcAddError(rtcP,INCONSISTENT_CTRL_REG);}
-				
-				/* Verify Alarm1 registers if it's set */
-				if(rtcP->ctrlReg & AI1E_FLAG)
-				{
-					if (!verifyAxData(dataP + A1_SEC_ADDR,rtcP->alarm1.time, TOTAL_ALARM1_REGISTERS)) {rtcAddError(rtcP,INCONSISTENT_A1);}
-				}
-				/* Verify Alarm2 registers if it's set */
-				if(rtcP->ctrlReg & AI2E_FLAG)
-				{
-					if (!verifyAxData(dataP + A2_MIN_ADDR,&rtcP->alarm2.time[1],TOTAL_ALARM2_REGISTERS)) {rtcAddError(rtcP,INCONSISTENT_A2);}
-				}
-				
-				/* Check Status register and clear respective bits */
-				rtcP->ctrlStatReg = *(dataP + RTC_CTRL_STAT_ADDR);
-				if (rtcP->ctrlStatReg & OSC_FLAG)
-				{
-					/* Report error: OSC should normally be 0. */
-					rtcAddError(rtcP, OSC_STOP);
-				}
-				if ((rtcP->ctrlStatReg & A1I_FLAG) && (rtcP->ctrlReg & AI1E_FLAG))
-				{
-					/* Execute A1 callback */
-					alarmExecuteCB(&rtcP->alarm1);
-				}
-				if ((rtcP->ctrlStatReg & A2I_FLAG) && (rtcP->ctrlReg & AI2E_FLAG))
-				{
-					/* Execute A2 callback which is to Update LCD Screen */ 
-					alarmExecuteCB(&rtcP->alarm2);
-				}
-				
-				/* Clear buffer for next command */
-				bufferClear(retrieveActiveBuffer());
-				/* Clear CMD complete flag and clear flags */
-				rtcSetStatReg(rtcP,0);
-				/* Print Time */
-				printTime();
-			}
-			break;
-		default:
-			break;	
-	}
-}
-
-/* Initiate a command to read all DS3231 registers */
-bool rtcReadRegisters(rtc_manager_t *rtcP)
-{
-	bool status = false;
-	/* Request to send new command */
-	if(!cmdProcCtrlRequestNewCmd())
-	{
-		return status;
-	}
-	status = true;
-	/* Set appropriate state */
-	rtcP->state = RTC_READING_ALL_REGS;
+	alarmInit(&rtcP->alarm1);
+	rtcP->alarm1.matchFlag = A1_MATCH_DT_HR_MIN_SEC; // 0
+	alarmInit(&rtcP->alarm2);
+	rtcP->alarm2.matchFlag = A2_MATCH_DT_HR_MIN; // 0 
 	
-	/* Configure command header + payload */
-	cmd_hdr_t *cmdHdr;
-	cmdHdr = bufferSetData(retrieveActiveBuffer(), sizeof(cmd_hdr_t) + sizeof(read_all_regs_cmd_s));
-	cmdHdr->type = READ_ALL_REGS;
-	cmdHdr->length = sizeof(cmd_hdr_t) + sizeof(read_all_regs_cmd_s);
-	
-	/* Store address pointer of first register of DS3231 before sending payload */
-	cmdHdr->payload[0] = RTC_SEC_ADDR;
-	cmdHdr->checksum = cmdHdrCalcChecksum(cmdHdr,cmdHdr->length);
-	return status;
+	rtcP->errorList[256]= 0; // Initialize error count list 
 }
 
-/* Initiate the command to set the RTC time (sec, min, hr, day, date, month/century, year) */
+/* Set seconds of RTC */
+bool rtcSetSeconds(rtc_manager_t *rtcP, uint8_t seconds)
+{	
+	if (rtcSetTimeRegs(rtcP, SET_RTC_SEC_CMD_SIZE, RTC_SEC_ADDR, &seconds, 1))
+	{
+		rtcP->time[RTC_SEC_ADDR] = seconds; // Update rtc object 
+		return true;
+	}
+	
+	return false;
+}
+
+/* Set minutes of RTC */
+bool rtcSetMinutes(rtc_manager_t *rtcP, uint8_t min)
+{
+	if (rtcSetTimeRegs(rtcP, SET_RTC_MIN_CMD_SIZE, RTC_MIN_ADDR, &min, 1))
+	{
+		rtcP->time[RTC_MIN_ADDR] = min; // Update rtc object 
+		return true;
+	}
+	
+	return false;
+}
+
+/* Set hours of RTC */
+bool rtcSetHour(rtc_manager_t *rtcP, uint8_t hour)
+{	
+	if (rtcSetTimeRegs(rtcP, SET_RTC_HR_CMD_SIZE, RTC_HRS_ADDR, &hour, 1))
+	{
+		rtcP->time[RTC_HRS_ADDR] = hour; // Update rtc object 
+		return true;
+	}
+	
+	return false;
+}
+
+/* Set day of RTC */
+bool rtcSetDay(rtc_manager_t *rtcP, enum days_e day)
+{
+	if (rtcSetTimeRegs(rtcP, SET_RTC_DY_CMD_SIZE, RTC_DY_ADDR, &day, 1))
+	{
+		rtcP->time[RTC_DY_ADDR] = day; // Update rtc object 
+		return true;
+	}
+	return false;
+}
+
+/* Set date of RTC */
+bool rtcSetDate(rtc_manager_t *rtcP, uint8_t date)
+{
+	if (rtcSetTimeRegs(rtcP, SET_RTC_DT_CMD_SIZE, RTC_DT_ADDR, &date, 1))
+	{
+		rtcP->time[RTC_DT_ADDR] = date; // Update rtc object 
+		return true;
+	}
+	
+	return false;
+}
+
+/* Set month and century of RTC */
+bool rtcSetMonCen(rtc_manager_t *rtcP, uint8_t mon, bool century)
+{
+	uint8_t monCen = century << 7 | mon ; // configure century flag of month/century register
+	if (rtcSetTimeRegs(rtcP, SET_RTC_MON_CEN_CMD_SIZE, RTC_M_CEN_ADDR, &monCen, 1))
+	{
+		rtcP->time[RTC_M_CEN_ADDR] = monCen;
+		return true;
+	}
+	
+	return false;
+}
+
+/* Set all time units of RTC object */ 
 bool rtcSetTime(rtc_manager_t *rtcP, uint8_t *time)
 {
-	bool status = false;
-	/* Request to send new command */
-	if(!cmdProcCtrlRequestNewCmd())
+	if (rtcSetTimeRegs(rtcP, SET_RTC_TIME_CMD_SIZE, RTC_SEC_ADDR, time, TIME_UNITS_TOTAL))
 	{
-		return status;
+		// If successful update time data member
+		for (uint8_t i = RTC_SEC_ADDR; i < TIME_UNITS_TOTAL; i++) //startAddr will match enum value of register
+			rtcP->time[i] = time[i];
+		return true;
 	}
-	status = true;
-	/* Set appropriate state */
-	rtcP->state = RTC_SETTING_TIME;
-	
-	/* Configure Time for DS3231  */
-	configTime(time, TIME_UNITS_TOTAL);
-	
-	/* Configure command header + payload */
-	cmd_hdr_t *cmdHdr;
-	cmdHdr = bufferSetData(retrieveActiveBuffer(), sizeof(cmd_hdr_t) + sizeof(set_curr_time_cmd_t));
-	cmdHdr->type = SET_CURRENT_TIME;
-	cmdHdr->length = sizeof(cmd_hdr_t) + sizeof(set_curr_time_cmd_t);
-	
-	/* Store address pointer of first register of DS3231 before sending payload */
-	cmdHdr->payload[0] = RTC_SEC_ADDR;
-	for (int i = 0; i < TIME_UNITS_TOTAL; i++){*(cmdHdr->payload + START_ADDRESS_OFFSET + i) = time[i];}
-	/* Calculate Checksum */
-	cmdHdr->checksum = cmdHdrCalcChecksum(cmdHdr,cmdHdr->length);
-	return status;
+	return false;
 }
 
 /* Initiate the command to set the RTC control register */
 bool rtcSetCtrlReg(rtc_manager_t *rtcP,uint8_t newCtrlReg)
-{	
-	/* Check if there's an ongoing command */
-	if(!cmdProcCtrlRequestNewCmd())
+{
+	uint8_t cmdBuffer[SET_CONTROL_REG_CMD_SIZE];
+	
+	
+	cmdBuffer[0]  = RTC_CTRL_ADDR;	// Store address of control register in command buffer
+	cmdBuffer[1]  = newCtrlReg;		// Store new control register
+	
+	if(i2cMasterTransmit(DS3231_SLAVE_ADDR, cmdBuffer, SET_CONTROL_REG_CMD_SIZE))
 	{
-		return false;
+		rtcP->ctrlReg = newCtrlReg; // update rtc object
+		return true;
 	}
-	/* Set appropriate state */
-	rtcP->state = RTC_SETTING_CR;
-	
-	/* Configure RTC Control */
-	rtcP->ctrlReg = newCtrlReg;
-	
-	/* Send command to set control register */
-	cmd_hdr_t *cmdHdr;
-	cmdHdr = bufferSetData(retrieveActiveBuffer(), sizeof(cmd_hdr_t) + sizeof(set_ctrl_reg_cmd_t));
-	cmdHdr->type = SET_CONTROL_REG;
-	cmdHdr->length = sizeof(cmd_hdr_t) + sizeof(set_ctrl_reg_cmd_t);
-	cmdHdr->checksum = cmdHdrCalcChecksum(cmdHdr,cmdHdr->length);
-	
-	/* Store address pointer of control register */
-	cmdHdr->payload[0] = RTC_CTRL_ADDR;
-	cmdHdr->payload[1] = rtcP->ctrlReg;
-	return true;
+	else
+	return false;
 }
 
 /* Initiate the command to set the RTC status register */
 bool rtcSetStatReg(rtc_manager_t *rtcP,uint8_t newStatReg)
 {
-	/* Check if there's an ongoing command */
-	if(!cmdProcCtrlRequestNewCmd())
-	{
-		return false;
-	}
-	/* Set appropriate state */
-	rtcP->state = RTC_SETTING_SR;
 	
-	/* Send command to set control register */
-	cmd_hdr_t *cmdHdr;
-	cmdHdr = bufferSetData(retrieveActiveBuffer(), sizeof(cmd_hdr_t) + sizeof(set_sat_reg_cmd_t));
-	cmdHdr->type = SET_STAT_REG;
-	cmdHdr->length = sizeof(cmd_hdr_t) + sizeof(set_sat_reg_cmd_t);
-	cmdHdr->checksum = cmdHdrCalcChecksum(cmdHdr,cmdHdr->length);
+	uint8_t cmdBuffer[SET_STAT_REG_CMD_SIZE];
+	cmdBuffer[0]  = RTC_CTRL_STAT_ADDR;	// Store address of rtc seconds register in command buffer
+	cmdBuffer[1]  = newStatReg;	// Store new state register
 	
-	/* Store address pointer of control register */
-	cmdHdr->payload[0] = RTC_CTRL_STAT_ADDR;
-	cmdHdr->payload[1] = newStatReg;
-	return true;
-}
-
-/* Initiate the command to set RTC alarm(1or2) registers */
-bool rtcSetAlarm(rtc_manager_t *rtcP, enum alarm_pos_e pos, uint8_t *time, enum alarm_match_options_e matchFlag)
-{
-	bool status = false;
-	/* Request to send new command */
-	if(!cmdProcCtrlRequestNewCmd()) {return status;}
-		
-	uint32_t matchBits = 0;
-	/* Set up cmd header */
-	cmd_hdr_t *cmdHdr;
-	if (pos == ALARM_2)
+	if (i2cMasterTransmit(DS3231_SLAVE_ADDR, cmdBuffer, SET_STAT_REG_CMD_SIZE))
 	{
-		rtcP->state = RTC_SETTING_A2;
-		/* Configure command specifications */
-		cmdHdr = bufferSetData(retrieveActiveBuffer(), sizeof(cmd_hdr_t) + sizeof(set_alarm2_time_cmd_t));
-		cmdHdr->type = SET_ALARM2_TIME;
-		cmdHdr->length = sizeof(cmd_hdr_t) + sizeof(set_alarm2_time_cmd_t);
-		
-		/* Store address pointer of alarm 2 before the time */
-		cmdHdr->payload[0] = A2_MIN_ADDR;
-		/* Config time bits */
-		configTime(time,TOTAL_ALARM2_REGISTERS);
-		alarmStoreTime(&rtcP->alarm2, time);
-		matchBits = configMatchingConditions(matchFlag,ALARM_2);
-		int len = TOTAL_ALARM2_REGISTERS - 1; /* Used to extract each byte from matchBits in the following loop*/
-		for (int i = 0; i < TOTAL_ALARM2_REGISTERS; i++){ rtcP->alarm2.time[1+i] |= matchBits >> (len-i) * BYTE_BIT_COUNT; /*We start at second index of time because Alarm 2 doesn't have seconds (first index)*/}
-		rtcP->alarm2.matchFlag = matchFlag;
-		/* Load time into cmd payload */
-		for (int i = 0; i < TOTAL_ALARM2_REGISTERS; i++){*(cmdHdr->payload + START_ADDRESS_OFFSET + i) = rtcP->alarm2.time[1+i];}
-		/* Calculate Checksum */
-		cmdHdr->checksum = cmdHdrCalcChecksum(cmdHdr,cmdHdr->length);
-		status = true;
+		rtcP->ctrlStatReg = newStatReg; // Update rtc object
+		return true;
 	}
 	else
+	return false;
+}
+
+/* Set RTC Alarm 1 */
+bool rtcSetAlarm1(rtc_manager_t *rtcP, uint8_t *time, enum alarm_match_options_e matchFlag,
+			      void (*funcP)(void *objP), void *objP)
+{
+	uint32_t matchBits = 0;
+	
+	uint8_t cmdBuffer[SET_ALARM1_TIME_CMD_SIZE];
+	cmdBuffer[0] = A1_SEC_ADDR; // Store addres of alarm 1 register
+	
+	/* Config time bits */
+	configTime(time,TOTAL_ALARM1_REGISTERS);
+	alarmStoreTime(&rtcP->alarm1, time);
+	matchBits = configMatchingConditions(matchFlag,ALARM_1);
+	
+	int len = TOTAL_ALARM1_REGISTERS - 1; /* Used to extract each byte from matchBits in the following loop*/
+	for (int i = 0; i < TOTAL_ALARM1_REGISTERS; i++)
+	rtcP->alarm1.time[i] |= matchBits >> (len-i) * BYTE_BIT_COUNT;
+	rtcP->alarm1.matchFlag = matchFlag;
+	
+	/* Load time into cmd payload */
+	for (int i = 0; i < TOTAL_ALARM1_REGISTERS; i++)
+	cmdBuffer[START_ADDRESS_OFFSET + i] = rtcP->alarm1.time[i];
+	
+	if (i2cMasterTransmit(DS3231_SLAVE_ADDR, cmdBuffer, SET_ALARM1_TIME_CMD_SIZE))
 	{
-		rtcP->state = RTC_SETTING_A1;
-		/* Configure command specifications */
-		cmdHdr = bufferSetData(retrieveActiveBuffer(), sizeof(cmd_hdr_t) + sizeof(set_alarm1_time_cmd_t));
-		cmdHdr->type = SET_ALARM1_TIME;
-		cmdHdr->length = sizeof(cmd_hdr_t) + sizeof(set_alarm1_time_cmd_t);
-		/* Store address pointer of alarm 1 before the time */
-		cmdHdr->payload[0] = A1_SEC_ADDR;
-		/* Config time bits */
-		configTime(time,TOTAL_ALARM1_REGISTERS);
-		alarmStoreTime(&rtcP->alarm1, time);
-		matchBits = configMatchingConditions(matchFlag,ALARM_1);
-		int len = TOTAL_ALARM1_REGISTERS - 1; /* Used to extract each byte from matchBits in the following loop*/
-		for (int i = 0; i < TOTAL_ALARM1_REGISTERS; i++) { rtcP->alarm1.time[i] |= matchBits >> (len-i) * BYTE_BIT_COUNT;}
-		rtcP->alarm1.matchFlag = matchFlag;
-		/* Load time into cmd payload */
-		for (int i = 0; i < TOTAL_ALARM1_REGISTERS; i++){*(cmdHdr->payload + START_ADDRESS_OFFSET + i) = rtcP->alarm1.time[i];}
-		/* Calculate Checksum */
-		cmdHdr->checksum = cmdHdrCalcChecksum(cmdHdr,cmdHdr->length);
-		status = true;
+		rtcSetAlarmCallback(rtcP, ALARM_1, funcP, objP);
+		return rtcSetCtrlReg(rtcP, rtcP->ctrlReg | AI1E_FLAG);
 	}
+	else
+	return false;
+}
+
+/* Set RTC Alarm 2 */
+bool rtcSetAlarm2(rtc_manager_t *rtcP, uint8_t *time, enum alarm_match_options_e matchFlag,
+				  void (*funcP)(void *objP), void *objP)
+{
+	uint32_t matchBits = 0;
+	
+	uint8_t cmdBuffer[SET_ALARM2_TIME_CMD_SIZE];
+	cmdBuffer[0] = A2_MIN_ADDR;	// Store address of alarm 2 register
+	
+	/* Config time bits */
+	configTime(time,TOTAL_ALARM2_REGISTERS);
+	alarmStoreTime(&rtcP->alarm2, time);
+	matchBits = configMatchingConditions(matchFlag,ALARM_2);
+	
+	int len = TOTAL_ALARM2_REGISTERS - 1; /* Used to extract each byte from matchBits in the following loop*/
+	for (int i = 0; i < TOTAL_ALARM2_REGISTERS; i++)
+	rtcP->alarm2.time[i + 1] |= matchBits >> (len - i) * BYTE_BIT_COUNT; /*We start at second index of time because Alarm 2 doesn't have seconds (first index)*/
+	rtcP->alarm2.matchFlag = matchFlag;
+	
+	/* Load time into cmd payload */
+	for (int i = 0; i < TOTAL_ALARM2_REGISTERS; i++)
+	cmdBuffer[START_ADDRESS_OFFSET + i] = rtcP->alarm2.time[i + 1];
+	
+	if (i2cMasterTransmit(DS3231_SLAVE_ADDR, cmdBuffer, SET_ALARM2_TIME_CMD_SIZE))
+	{
+		
+		rtcSetAlarmCallback(rtcP, ALARM_2, funcP, objP);
+		return rtcSetCtrlReg(rtcP, rtcP->ctrlReg | AI2E_FLAG);
+	}
+	else
+	return false;
+}
+
+/* Set alarm Callback */
+void rtcSetAlarmCallback(rtc_manager_t *rtcP, enum alarm_pos_e alarm, void (*funcP)(void *objP), void *objP)
+{
+	if (alarm)
+	alarmSetCB(&rtcP->alarm2, funcP, objP);	// Set alarm 2 call back
+	else
+	alarmSetCB(&rtcP->alarm1, funcP, objP);	// Set alarm 1 call back
+}
+
+/* Initiate a command to read all RTC registers */
+bool rtcReadRegisters(rtc_manager_t *rtcP, uint8_t respData[])
+{
+	uint8_t cmdBuffer[READ_ALL_REGS_CMD_SIZE];
+
+	// Store address of rtc seconds register in command buffer
+	cmdBuffer[0]  = RTC_SEC_ADDR;
+	
+	bool status = false;
+	
+	// Transmit address
+	if (i2cMasterTransmit(DS3231_SLAVE_ADDR, cmdBuffer, READ_ALL_REGS_CMD_SIZE))
+	// Read the 19 registers of ds3231
+	status = i2cMasterRead(DS3231_SLAVE_ADDR, respData, READ_ALL_REGS_RESP_SIZE);
+	
 	return status;
 }
 
-/* Print time on LCD */
-void printTime(void)
-{
-	
-	/* uint8_t space; used for debugging. e.g space = snprintf(buff,20,"%x", time) */
-	/* Set cursor to (0,1) to Set Hour:Min in LCD */
-	lcdSetDDRAMAdrr(0,1);
-	char buff[20];
-	for (int i=TIME_UNITS_HR; i>TIME_UNITS_SEC; i--)
-	{
-		snprintf(buff,20,"%x",rtcMan.time[i]);
-		if(rtcMan.time[i] < 10){ lcdWriteString("0");}
-		lcdWriteString(buff);
-		if (i!=TIME_UNITS_SEC+1) {lcdWriteString(":");}
-	}
-	/* Set cursor to (0,7) to Set Date/month/year in LCD */
-	lcdSetDDRAMAdrr(0,8);
-	if ((rtcMan.time[TIME_UNITS_MO_CEN] & 0x1F) < 0x09) {lcdWriteString("0");}
-	snprintf(buff,20,"%x/", rtcMan.time[TIME_UNITS_MO_CEN] & 0x1F);
-	lcdWriteString(buff);
-	
-	if(rtcMan.time[TIME_UNITS_DT] < 10){lcdWriteString("0");}
-	snprintf(buff,20,"%x/", rtcMan.time[TIME_UNITS_DT]);
-	lcdWriteString(buff);
-	
-	if(rtcMan.time[TIME_UNITS_YR] < 10){lcdWriteString("0");}
-	snprintf(buff,20,"%x", rtcMan.time[TIME_UNITS_YR]);
-	lcdWriteString(buff);
-	
-}
+ /* Polling routine to update an RTC object */
+ void rtcPoll(rtc_manager_t *rtcP)
+ {
+	 if (!(INTCN_PIN & (1<<INTCN_PIN_NUM)) && (rtcP->ctrlReg & AI1E_FLAG || rtcP->ctrlReg & AI2E_FLAG))
+	 {
+		  uint8_t registers[READ_ALL_REGS_RESP_SIZE];
+		  // Read registers
+		  rtcReadRegisters(rtcP, registers);
+	  
+		  // Update the RTC object and check for control/alarm registers mismatch
+		  rtcUpdate(rtcP, registers);
+	  
+		  // Clear CMD complete flag and clear flags
+		  rtcSetStatReg(rtcP,0);
+	 }
+ }
+
+
+
 /************************************************************************/
 /*					Private Functions Implementation			        */
 /************************************************************************/
@@ -483,4 +430,63 @@ static bool verifyCtrlReg(uint8_t *dataP, uint8_t ctrlReg)
 	return true;
 }
 
+/* Update RTC object with data read from the DS3231 and check for erros */
+static void rtcUpdate(rtc_manager_t *rtcP, uint8_t regs[])
+{
+	/* Update RTC time array */
+	for(int i = 0; i < TIME_UNITS_TOTAL; i++)
+	rtcP->time[i] = regs[i];
+	
+	/* Check see if errors in setting CR register */
+	if(!verifyCtrlReg(regs + RTC_CTRL_ADDR, rtcP->ctrlReg))
+	rtcAddError(rtcP,INCONSISTENT_CTRL_REG);
+	
+	/* Verify Alarm1 registers if it's set */
+	if(rtcP->ctrlReg & AI1E_FLAG)
+	{
+		if (!verifyAxData(regs + A1_SEC_ADDR, rtcP->alarm1.time, TOTAL_ALARM1_REGISTERS))
+		rtcAddError(rtcP,INCONSISTENT_A1);
+	}
+	
+	/* Verify Alarm2 registers if it's set */
+	if(rtcP->ctrlReg & AI2E_FLAG)
+	{
+		if (!verifyAxData(regs + A2_MIN_ADDR, &rtcP->alarm2.time[1], TOTAL_ALARM2_REGISTERS))
+		rtcAddError(rtcP, INCONSISTENT_A2);
+	}
+	
+	/* Check Status register and clear respective bits */
+	rtcP->ctrlStatReg = regs[RTC_CTRL_STAT_ADDR];
+	if (rtcP->ctrlStatReg & OSC_FLAG)
+	{
+		/* Report error: OSC should normally be 0. */
+		rtcAddError(rtcP, OSC_STOP);
+	}
+	if ((rtcP->ctrlStatReg & A1I_FLAG) && (rtcP->ctrlReg & AI1E_FLAG))
+	{
+		/* Execute A1 callback */
+		alarmExecuteCB(&rtcP->alarm1);
+	}
+	if ((rtcP->ctrlStatReg & A2I_FLAG) && (rtcP->ctrlReg & AI2E_FLAG))
+	{
+		/* Execute A2 callback which is to Update LCD Screen */
+		alarmExecuteCB(&rtcP->alarm2);
+	}
+}
+
+/* Set time of DS3231 */
+static bool rtcSetTimeRegs(rtc_manager_t *rtcP, uint8_t cmdBuffSize, uint8_t startAddr,
+						   uint8_t *time, uint8_t numTimeUnits)
+{
+	uint8_t cmdBuffer[cmdBuffSize];
+	cmdBuffer[0]  = startAddr;	// Store address of rtc seconds register in command buffer
+	
+	configTime(time, numTimeUnits);	// Configure Time for DS3231
+	
+	// Store new time in command buffer
+	for (int i = 0; i < numTimeUnits; i++)
+	cmdBuffer[i + START_ADDRESS_OFFSET] = time[i];
+	
+	return i2cMasterTransmit(DS3231_SLAVE_ADDR, cmdBuffer, cmdBuffSize);
+}
 
