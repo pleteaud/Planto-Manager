@@ -1,133 +1,150 @@
-#include <atmel_start.h>
-#include <util/delay.h>
 #include "main.h"
-dht11_sensor_t rSensor;
-soil_moisture_sensor_t soilSensor;
+
+//dht11_sensor_t rSensor;
+//soil_moisture_sensor_t soilSensor;
+void printTime();
+
+/* Instantiate device objects */
+lcd_t lcd;
+rtc_manager_t rtc;
+
+
+/* Custom Pattern byte for clock */
+unsigned char clockSymbol[] = {0x0,0xe,0x15,0x17,0x11,0xe,0x0,0x00};
+uint8_t clkSymLoc = 0;
+unsigned char calendarSymbol[] = {0x00,0x11,0x1F,0x13,0x1F,0x1F,0x00,0x00};
+uint8_t calSymLoc = 1;
+
+/* Custom pattern bytes for BME sensor */
+unsigned char thermoSym[] = {0x04,0x0A,0x0A,0x0E,0x0E,0x1F,0x1F,0x0E};
+uint8_t thermSymLoc = 2;
+unsigned char degreeSym[] = {0x0C,0x12,0x12,0x0C,0x00,0x00,0x00,0x00};
+uint8_t degreeSymLoc = 3;
+unsigned char humiditySym[] = {0x04,0x04,0x0A,0x0A,0x11,0x11,0x11,0x0E};
+uint8_t humiditySymLoc = 4;
+
 int main(void)
 {
 	/* Initializes MCU, drivers and middleware */
 	atmel_start_init();
-	
-	/* Initialize buffer */
-	bufferInit(retrieveActiveBuffer());
-	/* Initialize cmd procedure */
-	cmdProcInit();
-	/* Initialize Master I2C */
-	i2cMasterInit(DS3231_SLAVE_ADDR);
+
+	i2cMasterInit(0);
 	
 	/* Initialize LCD */
-	lcdInit();	
-	/* Shift Display left 16 times as information about */
-	/* sensors/rtc initialization will be printed there */
-	for (int i = 0; i<16; i++)
-	{
-		lcdCursorDisplayShift(8);
-	}
+	lcdInit(&lcd, &DDRB, &PORTB, PINB0, PINB1, PINB2, true, false);	
 	
-	/* Indicate dht11 is being initialized */
-	lcdSetDDRAMAdrr(0,16);
-	lcdWriteString("  Initializing  ");
-	lcdSetDDRAMAdrr(1,16);
-	lcdWriteString(" Temp & Hum Sen ");
-	/* Initialize dht11 */
-	dht11Init(&rSensor);
-	
-	 ///* Initialize soil moisture sensor */
-	//lcdSetDDRAMAdrr(0,16);
-	//lcdWriteString("  Initializing  ");
-	//lcdSetDDRAMAdrr(1,16);
-	//lcdWriteString(" Soil Moist Sen ");
-	//milli_delay(500);
-	//soilSensInit(&soilSensor);
-	//milli_delay(1000);
-	//soilSenCalibrate(&soilSensor);
-	//milli_delay(1000);
+	// Indicate temperature sensor
+	lcdSetCursor(&lcd, 0,0);
+	lcdPrint(&lcd, "  Initializing  ");
+	lcdSetCursor(&lcd, 1,0);
+	lcdPrint(&lcd, " BME280 Sen ");
+	lcdClear(&lcd);
+	/* init bme sensor */
 	
 	/* Initialize and Configure RTC */
-	lcdSetDDRAMAdrr(0,16);
-	lcdWriteString("  Initializing  ");
-	lcdSetDDRAMAdrr(1,16);
-	lcdWriteString(" Real Time Clock ");
+	lcdSetCursor(&lcd, 0,0);
+	lcdPrint(&lcd, "  Initializing  ");
+	lcdSetCursor(&lcd, 1,0);
+	lcdPrint(&lcd, " Real Time Clock ");
 	milli_delay(1000);
-	rtcInit();
-	/* Shift Display right 16 times as the  */
-	/* primary information is printed there */
-	for (int i = 0; i<16; i++)
-	{
-		lcdCursorDisplayShift(12);
-	}
-	/* Set time registers */
-	if (rtcSetCtrlReg(retrieveActiveRTC(), INTCN_FLAG))
-	{
-		/* Wait till reg is set */
-		while (!rtcIsFree(retrieveActiveRTC()))
-		{
-			cmdProcCtrPoll();
-			rtcPoll();
-		}
-	}
+	rtcInit(&rtc);
+	lcdClear(&lcd);
 	
-	uint8_t initialTime[7] = {00,00,16,MON,24,AUG,20};
-	if(rtcSetTime(retrieveActiveRTC(),initialTime))
-	{
-		/* Wait till time is set */
-		while (!rtcIsFree(retrieveActiveRTC()))
-		{
-			cmdProcCtrPoll();
-			rtcPoll();
-		}
-	}
-
-	/* Set Alarm 2 to occur every minute */
+	/* Build and print special symbols */
+	printSymbols(&lcd);
+	
+	// Set time 
+	uint8_t initialTime[7] = {00,22, 19, SAT, 2, JAN, 21};
+	rtcSetTime(&rtc, initialTime);
+	printTime();
+	
+	rtcSetMinutes(&rtc, 37);
+	rtcSetHour(&rtc, 4);
+	rtcSetDay(&rtc, SUN);
+	rtcSetDate(&rtc, 3);
+	rtcSetMonCen(&rtc, FEB, 0);
+	uint8_t reg[19];
+	// Set Alarm 2 to occur every minute
 	uint8_t a2Time[4] = {00, 00, 00, 00};
-	if(rtcSetAlarm(retrieveActiveRTC(),ALARM_2,a2Time,A2_MATCH_ONCE_PER_MIN))
-	{
-		/* Wait till a2 is set */
-		while (!rtcIsFree(retrieveActiveRTC()))
-		{
-			cmdProcCtrPoll();
-			rtcPoll();
-		}
-	}
-	/* Set Alarm 1 to occur every minute */
-	uint8_t a1Time[4] = {00, 6, 00, 01};
-	alarmSetCB(rtcGetAlarm(retrieveActiveRTC(),ALARM_1), NULL, NULL);
-	if(rtcSetAlarm(retrieveActiveRTC(),ALARM_1,a1Time,A1_MATCH_SEC))
-	{
-		/* Wait till a1 is set */
-		while (!rtcIsFree(retrieveActiveRTC()))
-		{
-			cmdProcCtrPoll();
-			rtcPoll();
-		}
-	}
+	rtcSetAlarm2(&rtc, a2Time, A2_MATCH_ONCE_PER_MIN, printTime, NULL);
 	
-	if (rtcSetCtrlReg(retrieveActiveRTC(), rtcGetCtrlReg(retrieveActiveRTC()) | AI2E_FLAG | AI1E_FLAG))
-	{
-		/* Wait till reg is set */
-		while (!rtcIsFree(retrieveActiveRTC()))
-		{
-			cmdProcCtrPoll();
-			rtcPoll();
-		}
-	}
-	/* Clear out Status register in case there is an interrupt that wasn't cleared from previous session */
-	if (rtcSetStatReg(retrieveActiveRTC(),0))
-	{
-		/* Wait till reg is set */
-		while (!rtcIsFree(retrieveActiveRTC()))
-		{
-		cmdProcCtrPoll();
-		rtcPoll();
-		}
-	}
+// 	/* Set Alarm 1 to occur every minute */
+// 	uint8_t a1Time[4] = {00, 6, 00, 01};
+// 	rtcSetAlarm1(&rtc, a1Time, A1_MATCH_SEC, printTime, NULL);	
 
 	while(1)
 	{
-		rtcPoll();
-		cmdProcCtrPoll();
-		dht11Poll(&rSensor);
+		rtcPoll(&rtc);
+		rtcReadRegisters(&rtc, reg);
 	}
-
 	
+}
+
+/* Print time on LCD */
+void printTime()
+{
+	/* uint8_t space; used for debugging. e.g space = snprintf(buff,20,"%x", time) */
+	/* Set cursor to (0,1) to Set Hour:Min in LCD */
+	lcdSetCursor(&lcd, 0, 1);
+	char buff[20];
+	for (int i=TIME_UNITS_HR; i>TIME_UNITS_SEC; i--)
+	{
+		snprintf(buff,20,"%x",rtc.time[i]);
+		
+		if(rtc.time[i] < 10)
+			lcdPrint(&lcd, "0");
+		lcdPrint(&lcd, buff);
+		
+		if (i!=TIME_UNITS_SEC+1) 
+			lcdPrint(&lcd, ":");
+	}
+	/* Set cursor to (0,7) to Set Date/month/year in LCD */
+	lcdSetCursor(&lcd, 0, 8);
+	if ((rtc.time[TIME_UNITS_MO_CEN] & 0x1F) < 0x09) 
+		lcdPrint(&lcd, "0");
+	snprintf(buff,20,"%x/", rtc.time[TIME_UNITS_MO_CEN] & 0x1F);
+	lcdPrint(&lcd, buff);
+	
+	if(rtc.time[TIME_UNITS_DT] < 10)
+		lcdPrint(&lcd, "0");
+		
+	snprintf(buff,20,"%x/", rtc.time[TIME_UNITS_DT]);
+	lcdPrint(&lcd, buff);
+	
+	if(rtc.time[TIME_UNITS_YR] < 10)
+		lcdPrint(&lcd, "0");
+	snprintf(buff,20,"%x", rtc.time[TIME_UNITS_YR]);
+	lcdPrint(&lcd, buff);
+	
+}
+
+void printSymbols(lcd_t *lcd)
+{
+	/* Build and print themometer and degree symbol */
+	lcdBuildSym(lcd, thermSymLoc,thermoSym);
+	lcdBuildSym(lcd, degreeSymLoc,degreeSym);
+	lcdSetCursor(lcd, 1,0);
+	lcdPrintSymbol(lcd, thermSymLoc);
+	lcdSetCursor(lcd, 1,3);
+	lcdPrintSymbol(lcd, degreeSymLoc);
+	lcdPrint(lcd, "F");
+	
+	/* Build and print humidity symbol*/
+	lcdBuildSym(lcd, humiditySymLoc,humiditySym);
+	lcdSetCursor(lcd, 1,6);
+	lcdPrintSymbol(lcd, humiditySymLoc);
+	lcdSetCursor(lcd, 1,9);
+	lcdPrint(lcd, "%");
+	
+	/* Build and Print clock symbol */
+	lcdBuildSym(lcd, clkSymLoc, clockSymbol); // Build Clock Symbol
+	lcdSetCursor(lcd, 0,0);
+	lcdPrintSymbol(lcd, clkSymLoc);
+	
+	/* Build and print calendar symbol */
+	lcdBuildSym(lcd, calSymLoc,calendarSymbol);
+	lcdSetCursor(lcd, 0,7);
+	lcdPrintSymbol(lcd, calSymLoc);
+	
+	/* Print moisture Symbol */	
 }
