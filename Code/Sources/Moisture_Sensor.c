@@ -72,22 +72,22 @@ void soilSenPwrRelay(bool relayState)
 /* Initialize moisture sensor object's data members */
 void soilSensInit(soil_moisture_sensor_t *sensorP)
 {
-	sensorP->state = MS_UNCALIBRATED;
-	sensorP->sampleNum = sensorP->timeStamp = 0;
-	sensorP->calibrateFlag = false;
-	/* Configure pin DDRx as output low for relay control */
-	RELAY_DDR |= (1 << RELAY_OUTOUT_PIN);
-	soilSenPwrRelay(false);
-	/* Register callback for ADC sensor reading completion */
-	ADC_0_register_callback(adcReadCompCB);
-	
-	/* Configure Calibration Button */
-	CAL_BTN_DDR &= ~(1 << CAL_BTN_PIN_NUM); // Intput pin 
-	/* Build and print water content symbol*/
-	lcdBuildSym(soilSenSymLoc,soilSenSymb);
-	lcdSetDDRAMAdrr(1,11);
-	lcdWriteSymbol(soilSenSymLoc);
-	lcdWriteString("00%");
+	//sensorP->state = MS_UNCALIBRATED;
+	//sensorP->sampleNum = sensorP->timeStamp = 0;
+	//sensorP->calibrateFlag = false;
+	///* Configure pin DDRx as output low for relay control */
+	//RELAY_DDR |= (1 << RELAY_OUTOUT_PIN);
+	//soilSenPwrRelay(false);
+	///* Register callback for ADC sensor reading completion */
+	//ADC_0_register_callback(adcReadCompCB);
+	//
+	///* Configure Calibration Button */
+	//CAL_BTN_DDR &= ~(1 << CAL_BTN_PIN_NUM); // Intput pin 
+	///* Build and print water content symbol*/
+	//lcdBuildSym(soilSenSymLoc,soilSenSymb);
+	//lcdSetDDRAMAdrr(1,11);
+	//lcdWriteSymbol(soilSenSymLoc);
+	//lcdWriteString("00%");
 }
 
 /* Retrieve sensor's soil moisure reading */
@@ -99,79 +99,79 @@ double soilSenGetMoisture(soil_moisture_sensor_t *sensorP)
 /* Calibrate the upper and lower bound for soil moisture */
 void soilSenCalibrate(soil_moisture_sensor_t *sensorP)
 {
-	/* Determine the value of the moisture, when soil is dry (upper bound) */ 
-	sensorP->calibrateFlag = true;
-	sensorP->state = MS_IDLE;
-	soilSenPwrRelay(true);
-	alarmTrigFlag = true;
-	
-	/* Indicate to user now calibrating the value of the sensor when soil is dry */
-	lcdSetDDRAMAdrr(0,16);
-	lcdWriteString("Calibrating S-M:");
-	lcdSetDDRAMAdrr(1,16);
-	lcdWriteString("Maximum Dryness");
-	milli_delay(250);
-	/* Wait for user to press the calibration button to begin measurement */
-	waitForBtnPress();
-	lcdSetDDRAMAdrr(0,16);
-	lcdWriteString("  Release Button  ");
-	lcdSetDDRAMAdrr(1,16);
-	lcdWriteString("To Begin Reading");
-	/* Give user a second to release button */
-	milli_delay(1000);
-	
-	/* Read sensor value */
-	readSens(sensorP);
-	/* Store ADC value when soil is dry */
-	soilDryVal = soilSenGetMoisture(sensorP);
-	
-	
-	/* Determine the value of the moisture. when soil is wet (lower bound) */
-	soilSenPwrRelay(true);
-	alarmTrigFlag = true;
-	
-	/* Indicate to user now calibrating the value of the sensor when soil is wet */
-	lcdSetDDRAMAdrr(0,16);
-	lcdWriteString("Calibrating S-M:");
-	lcdSetDDRAMAdrr(1,16);
-	lcdWriteString("Maximum Wetness ");
-	milli_delay(250);
-	/* Wait for user to press the calibration button to begin measurement */
-	waitForBtnPress();
-	lcdSetDDRAMAdrr(0,16);
-	lcdWriteString("  Release Button  ");
-	lcdSetDDRAMAdrr(1,16);
-	lcdWriteString("To Begin Reading");
-	/* Give user a second to release button */
-	milli_delay(1000);
-	
-	/* Read sensor value */
-	readSens(sensorP);
-	/* Store ADC value when soil is wet */
-	soilWetVal = soilSenGetMoisture(sensorP);
-	
-	/* Update range for linear transformation */
-	oldRange = soilDryVal-soilWetVal;
-	if (oldRange == 0)
-	{
-		/* Indicate to user there was an error calibrating sensor and set state to "Uncalibrated" to prevent invalid math operations (e.g 0/0) */
-		lcdSetDDRAMAdrr(0,16);
-		lcdWriteString("Calibrating S-M:");
-		lcdSetDDRAMAdrr(1,16);
-		lcdWriteString("Error: Bad Range");
-		sensorP->state = MS_UNCALIBRATED;
-	}
-	else
-	{
-		/* Indicate successful calibration*/
-		lcdSetDDRAMAdrr(0,16);
-		lcdWriteString("Calibrating S-M:");
-		lcdSetDDRAMAdrr(1,16);
-		lcdWriteString("    Complete    ");
-	}
-	sensorP->calibrateFlag = false;
-	soilSenPwrRelay(false);
-	return;
+	///* Determine the value of the moisture, when soil is dry (upper bound) */ 
+	//sensorP->calibrateFlag = true;
+	//sensorP->state = MS_IDLE;
+	//soilSenPwrRelay(true);
+	//alarmTrigFlag = true;
+	//
+	///* Indicate to user now calibrating the value of the sensor when soil is dry */
+	//lcdSetDDRAMAdrr(0,16);
+	//lcdWriteString("Calibrating S-M:");
+	//lcdSetDDRAMAdrr(1,16);
+	//lcdWriteString("Maximum Dryness");
+	//milli_delay(250);
+	///* Wait for user to press the calibration button to begin measurement */
+	//waitForBtnPress();
+	//lcdSetDDRAMAdrr(0,16);
+	//lcdWriteString("  Release Button  ");
+	//lcdSetDDRAMAdrr(1,16);
+	//lcdWriteString("To Begin Reading");
+	///* Give user a second to release button */
+	//milli_delay(1000);
+	//
+	///* Read sensor value */
+	//readSens(sensorP);
+	///* Store ADC value when soil is dry */
+	//soilDryVal = soilSenGetMoisture(sensorP);
+	//
+	//
+	///* Determine the value of the moisture. when soil is wet (lower bound) */
+	//soilSenPwrRelay(true);
+	//alarmTrigFlag = true;
+	//
+	///* Indicate to user now calibrating the value of the sensor when soil is wet */
+	//lcdSetDDRAMAdrr(0,16);
+	//lcdWriteString("Calibrating S-M:");
+	//lcdSetDDRAMAdrr(1,16);
+	//lcdWriteString("Maximum Wetness ");
+	//milli_delay(250);
+	///* Wait for user to press the calibration button to begin measurement */
+	//waitForBtnPress();
+	//lcdSetDDRAMAdrr(0,16);
+	//lcdWriteString("  Release Button  ");
+	//lcdSetDDRAMAdrr(1,16);
+	//lcdWriteString("To Begin Reading");
+	///* Give user a second to release button */
+	//milli_delay(1000);
+	//
+	///* Read sensor value */
+	//readSens(sensorP);
+	///* Store ADC value when soil is wet */
+	//soilWetVal = soilSenGetMoisture(sensorP);
+	//
+	///* Update range for linear transformation */
+	//oldRange = soilDryVal-soilWetVal;
+	//if (oldRange == 0)
+	//{
+		///* Indicate to user there was an error calibrating sensor and set state to "Uncalibrated" to prevent invalid math operations (e.g 0/0) */
+		//lcdSetDDRAMAdrr(0,16);
+		//lcdWriteString("Calibrating S-M:");
+		//lcdSetDDRAMAdrr(1,16);
+		//lcdWriteString("Error: Bad Range");
+		//sensorP->state = MS_UNCALIBRATED;
+	//}
+	//else
+	//{
+		///* Indicate successful calibration*/
+		//lcdSetDDRAMAdrr(0,16);
+		//lcdWriteString("Calibrating S-M:");
+		//lcdSetDDRAMAdrr(1,16);
+		//lcdWriteString("    Complete    ");
+	//}
+	//sensorP->calibrateFlag = false;
+	//soilSenPwrRelay(false);
+	//return;
 }
 
 void readSens(soil_moisture_sensor_t *sensorP)
