@@ -11,8 +11,11 @@
 #include "i2cMasterControl.h"
 #include "cmd_proc.h"
 #include <driver_init.h>
+#include <stdbool.h>
 
 #define MAX_ERRORS		(0x78)
+
+static bool busy;
 /************************************************************************/
 /*							Enums Definition		 	                */
 /************************************************************************/
@@ -52,34 +55,59 @@ void i2cMasterInit(uint8_t slaveAddress)
 	I2C_0_set_address_nack_callback(i2cAdrrNackCB, NULL);
 	I2C_0_set_data_nack_callback(i2cDataNackCB, NULL);
 	I2C_0_set_timeout_callback(i2cTimeoutErrCB,NULL);	
+	busy = false;
 }
 
-/* Initiate a I2C RX transaction. If I2C is busy, return false */
-bool i2cMasterRead(uint8_t *buffP, uint8_t dataSize)
+void i2cMasterChangeAddr(uint8_t newAddr)
 {
-	bool status = false;
-	/* Set buffer */
-	I2C_0_set_buffer(buffP, dataSize);
-	
-	/* Start I2C read */
-	if(I2C_0_master_operation(true) != I2C_BUSY)
-	{
-		 status = true;
-	}
-	return status;
+	I2C_0_set_address(newAddr);
 }
-/* Initiate a I2C TX transaction. If I2C is busy, return false */
-bool i2cMasterTransmit(uint8_t *payload,uint8_t dataSize)
+
+bool i2cMasterTransmit(uint8_t newAddr, uint8_t *payload, uint8_t dataSize)
 {
+	// Change I2C address
+	i2cMasterChangeAddr(newAddr);
+	
 	bool status = false;
+	busy = true;
+	
+	/* Reset CR Register before start new I2C transmission */
+	resetI2c();
 	
 	/* Set buffer */
 	I2C_0_set_buffer(payload, dataSize);
 	
 	/* Start I2C write */
-	if(I2C_0_master_operation(false) != I2C_BUSY){status = true;}
+	if(I2C_0_master_operation(false) != I2C_BUSY){
+		status = true;
+		while (busy){}
+	}
 	return status;
 }
+
+bool i2cMasterRead(uint8_t newAddr, uint8_t *buffP, uint8_t size)
+{
+	// Change I2C address
+	i2cMasterChangeAddr(newAddr);
+	
+	bool status = false;
+	busy = true;
+	/* Reset CR Register before start new I2C transmission */
+	resetI2c();
+	
+	/* Set buffer */
+	I2C_0_set_buffer(buffP, size);
+	
+	/* Start I2C read */
+	if(I2C_0_master_operation(true) != I2C_BUSY)
+	{
+		status = true;
+		// wait till we're done reading
+		while (busy){}
+	}
+	return status;
+}
+
 /* Reset I2C Control Registers for next communication */
 void resetI2c()
 {
@@ -91,6 +119,11 @@ void resetI2c()
 	TWCR |= (1 << TWIE);
 }
 
+bool returnBusy()
+{
+	return busy;
+}
+
 /************************************************************************/
 /*                     Private Functions Implementation                 */
 /************************************************************************/
@@ -98,7 +131,8 @@ void resetI2c()
 /* Evokes cmdProcCmdDone, to indicate transaction is done */
 static i2c_operations_t i2cMasterReturnStopCb(void *p)
 {
-	cmdProcCmdDone();
+	//cmdProcCmdDone();
+	busy = false;
 	return i2c_stop;
 }
 
@@ -124,16 +158,19 @@ static i2c_operations_t i2cWriteCollisionErrCB(void *p)
 static i2c_operations_t i2cAdrrNackCB(void *p)
 {
 	errorList[errorListCount++] = addressNACK;
+	busy = false;
 	return i2c_stop;
 }
 static i2c_operations_t i2cTimeoutErrCB(void *p)
 {
 	errorList[errorListCount++] = timeOut;
+	busy = false;
 	return i2c_reset_link;
 }
 
 static i2c_operations_t i2cDataNackCB(void *p)
 {
 	errorList[errorListCount++] = dataNACK;
+	busy = false;
 	return i2c_stop;
 }
