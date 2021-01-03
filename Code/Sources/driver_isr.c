@@ -36,15 +36,11 @@
 #include <driver_init.h>
 #include <compiler.h>
 #include "timer.h"
-#include "rtc.h"
+#include "main.h"
 
 ISR(PCINT1_vect)
 {
 	/* Insert your pin change 1 interrupt handling code here */
-	//if (!(PINC & (1 << PINC3)))
-	//{
-		//AxInterruptCB();
-	//}
 }
 ISR(TIMER1_CAPT_vect)
 {
