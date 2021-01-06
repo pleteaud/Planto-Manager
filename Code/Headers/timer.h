@@ -25,7 +25,7 @@ void startMillisTimer();
 void stopMillisTimer();
 void updateMillis();
 uint16_t getMillis();
-void milli_delay(int milliseconds);
-void micro_delay(int micro);
+void milli_delay(uint32_t milliseconds);
+void micro_delay(uint32_t micro);
 
 #endif /* TIMER_H_ */

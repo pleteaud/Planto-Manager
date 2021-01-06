@@ -56,7 +56,7 @@ uint16_t getMillis()
 }
 
 /* Execute a delay in milliseconds */
-void milli_delay(int milliseconds)
+void milli_delay(uint32_t milliseconds)
 {
 	
 	/* Prescale by 1024 */
@@ -74,7 +74,7 @@ void milli_delay(int milliseconds)
 }
 
 /* Execute a delay in microseconds */
-void micro_delay(int micro)
+void micro_delay(uint32_t micro)
 {
 	/* No prescaler */
 	TCCR1B = 0x02;
