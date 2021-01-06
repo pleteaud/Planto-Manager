@@ -10,9 +10,6 @@
 /************************************************************************/
 #include "rtc.h"
 #include "ds3231_regs_and_utils.h"
-#include "cmd_structure.h"
-#include "buffer.h"
-#include "cmd_proc.h"
 #include <avr/io.h>
 #include "LCD.h"
 #include "stdio.h"
