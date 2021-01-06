@@ -71,6 +71,7 @@ mcp23017_t ioExpander;
 void lcdInit(lcd_t *lcdP, volatile uint8_t *ctrlDdr, volatile uint8_t *ctrlPort,
 			 uint8_t rsPin, uint8_t rwPin, uint8_t enPin, bool lines, bool font)
 {
+	/*bool status = false;*/
 	// Set Direction of Ctrl port Pins to output with value 0
 	*ctrlDdr |= (1 << rsPin) | (1 << rwPin) | (1 << enPin);
 	*ctrlPort &= ~((1 << rsPin) | (1 << rwPin) | (1 << enPin));
@@ -86,7 +87,7 @@ void lcdInit(lcd_t *lcdP, volatile uint8_t *ctrlDdr, volatile uint8_t *ctrlPort,
 	//LCD_CTRL_DDR |= (1 << RS_PIN_NUM) | (1 << RW_PIN_NUM) | (1 << EN_PIN_NUM);
 	
 	// Initialize io expander to have GPIO B as output
-	mcpInit(&ioExpander, 1, &DDRB, &PORTB, PINB3);
+	mcpInit(&ioExpander, 0, &DDRB, &PORTB, PINB3);
 	mcpSetPortDir(&ioExpander, MCP23017_PORTB, 0);
 
 	/*** Process to initialize LCM Pg 16 of LCD1602A data sheet ***/
