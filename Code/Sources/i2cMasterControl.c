@@ -9,7 +9,6 @@
 /*							Includes/Constants	 	                    */
 /************************************************************************/
 #include "i2cMasterControl.h"
-#include "cmd_proc.h"
 #include <driver_init.h>
 #include <stdbool.h>
 
@@ -32,6 +31,7 @@ enum
 /************************************************************************/
 uint8_t errorList[MAX_ERRORS];
 int errorListCount;
+static bool error;
 /************************************************************************/
 /*                      Private Function Declaration                    */
 /************************************************************************/
@@ -43,6 +43,7 @@ static i2c_operations_t i2cWriteCollisionErrCB(void *p);
 static i2c_operations_t i2cAdrrNackCB(void *p);
 static i2c_operations_t i2cTimeoutErrCB(void *p);
 static i2c_operations_t i2cDataNackCB(void *p);
+
 /************************************************************************/
 /*                      Public Functions Implementations                */
 /************************************************************************/
@@ -82,7 +83,7 @@ bool i2cMasterTransmit(uint8_t newAddr, uint8_t *payload, uint8_t dataSize)
 		status = true;
 		while (busy){}
 	}
-	return status;
+	return !error;
 }
 
 bool i2cMasterRead(uint8_t newAddr, uint8_t *buffP, uint8_t size)
@@ -105,7 +106,7 @@ bool i2cMasterRead(uint8_t newAddr, uint8_t *buffP, uint8_t size)
 		// wait till we're done reading
 		while (busy){}
 	}
-	return status;
+	return !error;
 }
 
 /* Reset I2C Control Registers for next communication */
@@ -117,6 +118,7 @@ void resetI2c()
 	TWCR = (1 << TWINT) | (1 << TWEN);
 	// uncomment the IRQ enable for an interrupt driven driver.
 	TWCR |= (1 << TWIE);
+	error = false;
 }
 
 bool returnBusy()
@@ -159,6 +161,7 @@ static i2c_operations_t i2cAdrrNackCB(void *p)
 {
 	errorList[errorListCount++] = addressNACK;
 	busy = false;
+	error = true;
 	return i2c_stop;
 }
 static i2c_operations_t i2cTimeoutErrCB(void *p)
