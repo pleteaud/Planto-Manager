@@ -101,7 +101,10 @@ void rtcInit(rtc_manager_t *rtcP)
 	alarmInit(&rtcP->alarm2);
 	rtcP->alarm2.matchFlag = A2_MATCH_DT_HR_MIN; // 0 
 	
-	rtcP->errorList[256]= 0; // Initialize error count list 
+	for (int i = 0; i < 256; i ++)
+	{
+		rtcP->errorList[i] = 0; // Initialize error count list
+	}
 }
 
 /* Set seconds of RTC */
