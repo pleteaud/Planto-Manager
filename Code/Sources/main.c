@@ -1,14 +1,10 @@
 #include "main.h"
 
-//dht11_sensor_t rSensor;
-//soil_moisture_sensor_t soilSensor;
-void printTime();
-void loopie();
-
 /* Instantiate LCD, RTC, and BME sensor */
 lcd_t lcd;
 rtc_manager_t rtc;
 struct bme280_dev dev;
+mcp23017_t ioExpander;
 
 /* Custom Pattern byte for clock */
 unsigned char clockSymbol[] = {0x0,0xe,0x15,0x17,0x11,0xe,0x0,0x00};
@@ -31,10 +27,13 @@ int main(void)
 	atmel_start_init();
 
 	i2cMasterInit(0);
+	/* Initialize mcp23017 */
+	mcpInit(&ioExpander, 0, &DDRB, &PORTB, PINB3); // Pin B 3 is reset pin
+	mcpSetPortDir(&ioExpander, MCP23017_PORTB, 0);
 	
 	/* Initialize LCD */
-	lcdInit(&lcd, &DDRB, &PORTB, PINB0, PINB1, PINB2, true, false);	
-
+	//lcdInit(&lcd, &DDRB, &PORTB, PINB0, PINB1, PINB2, true, false);	
+	lcdInit(&lcd, &ioExpander, &DDRB, &PORTB, PINB0, PINB1, PINB2, true, false);	
 	/* Initialize bme sensor */
 	uint8_t devAddr = BME280_I2C_ADDR_PRIM;
 	initBME(&dev, userI2cRead, userI2cWrite, userDelayUs, &devAddr);
@@ -116,7 +115,7 @@ void printSymbols(lcd_t *lcdP)
 	lcdPrint(lcdP, "%");
 	
 	/* Build and Print clock symbol */
-	lcdBuildSym(lcdP, clkSymLoc, clockSymbol); // Build Clock Symbol
+	lcdBuildSym(lcdP, clkSymLoc, clockSymbol); 
 	lcdSetCursor(lcdP, 0,0);
 	lcdPrintSymbol(lcdP, clkSymLoc);
 	
