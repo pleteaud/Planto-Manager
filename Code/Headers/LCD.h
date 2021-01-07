@@ -27,7 +27,7 @@ typedef struct lcd_s
 	volatile uint8_t *ctrlPort;
 	uint8_t rsPin, rwPin, enPin;
 	/* I2C expander acts as data pins */ 
-	mcp23017_t ioExpander;
+	mcp23017_t *ioExpander;
 	
 	/* LCD configuration variables */
 	uint8_t entryModeSet;
@@ -40,7 +40,7 @@ typedef struct lcd_s
 /************************************************************************/
 /*							Public Interfaces    	                    */
 /************************************************************************/
-void lcdInit(lcd_t *lcdP, volatile uint8_t *ctrlDdr, volatile uint8_t *ctrlPort,
+void lcdInit(lcd_t *lcdP, mcp23017_t *ioExpander, volatile uint8_t *ctrlDdr, volatile uint8_t *ctrlPort,
 			 uint8_t rwPin, uint8_t rsPin, uint8_t enPin, bool lines, bool font);
 			 
 void lcdClear(lcd_t *lcdP);

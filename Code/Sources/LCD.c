@@ -67,8 +67,7 @@ static uint8_t lcdRead(lcd_t *lcdP, uint8_t rsFlag);
 /************************************************************************/
 /*                      Public Functions Implementations                */
 /************************************************************************/
-mcp23017_t ioExpander;
-void lcdInit(lcd_t *lcdP, volatile uint8_t *ctrlDdr, volatile uint8_t *ctrlPort,
+void lcdInit(lcd_t *lcdP, mcp23017_t *ioExpander, volatile uint8_t *ctrlDdr, volatile uint8_t *ctrlPort,
 			 uint8_t rsPin, uint8_t rwPin, uint8_t enPin, bool lines, bool font)
 {
 	/*bool status = false;*/
@@ -82,13 +81,11 @@ void lcdInit(lcd_t *lcdP, volatile uint8_t *ctrlDdr, volatile uint8_t *ctrlPort,
 	lcdP->rsPin = rsPin;
 	lcdP->rwPin = rwPin;
 	lcdP->enPin = enPin;
-	
-	//LCD_CTRL_PORT &= ~((1 << RS_PIN_NUM) | (1 << RW_PIN_NUM) | (1 << EN_PIN_NUM));
-	//LCD_CTRL_DDR |= (1 << RS_PIN_NUM) | (1 << RW_PIN_NUM) | (1 << EN_PIN_NUM);
+	lcdP->ioExpander = ioExpander;
 	
 	// Initialize io expander to have GPIO B as output
-	mcpInit(&ioExpander, 0, &DDRB, &PORTB, PINB3);
-	mcpSetPortDir(&ioExpander, MCP23017_PORTB, 0);
+// 	mcpInit(&ioExpander, 0, &DDRB, &PORTB, PINB3);
+// 	mcpSetPortDir(&ioExpander, MCP23017_PORTB, 0);
 
 	/*** Process to initialize LCM Pg 16 of LCD1602A data sheet ***/
     milli_delay(50);						// power on delay for > 15ms 
@@ -321,7 +318,7 @@ static void lcdWrite(lcd_t *lcdP, unsigned char data, uint8_t rsFlag)
 		*lcdP->ctrlPort &= ~(1 << lcdP->rsPin);			//it is an instruction rather than data
 
 	*lcdP->ctrlPort &= ~(1 << lcdP->rwPin);				//it is write operation
-	mcpSetPortLevel(&ioExpander, MCP23017_PORTB, data);	//put the instruction on the data bus
+	mcpSetPortLevel(lcdP->ioExpander, MCP23017_PORTB, data);	//put the instruction on the data bus
 	*lcdP->ctrlPort &= ~(1 << lcdP->enPin);				// assure E is cleared
 	micro_delay(1);
 	*lcdP->ctrlPort |= (1 << lcdP->enPin);				//set E to 1 (see Figure 1)
@@ -345,7 +342,7 @@ static uint8_t lcdRead(lcd_t *lcdP, uint8_t rsFlag)
 	*lcdP->ctrlPort |= (1 << lcdP->enPin);					//set E to 1 (see Figure 1)
 	micro_delay(1);											// need to be on for > 230ns
 	*lcdP->ctrlPort &=  ~(1 << lcdP->enPin);				// set E to 0 to generate a falling edge
-	mcpReadPortLevel(&ioExpander, MCP23017_PORTB, &val);	// Read port level
+	mcpReadPortLevel(lcdP->ioExpander, MCP23017_PORTB, &val);	// Read port level
 	return val;
 }
 
