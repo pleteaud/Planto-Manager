@@ -318,7 +318,7 @@ static void lcdWrite(lcd_t *lcdP, unsigned char data, uint8_t rsFlag)
 		*lcdP->ctrlPort &= ~(1 << lcdP->rsPin);			//it is an instruction rather than data
 
 	*lcdP->ctrlPort &= ~(1 << lcdP->rwPin);				//it is write operation
-	mcpSetPortLevel(lcdP->ioExpander, MCP23017_PORTB, data);	//put the instruction on the data bus
+	mcp23017SetPortLevel(lcdP->ioExpander, MCP23017_PORTB, data);	//put the instruction on the data bus
 	*lcdP->ctrlPort &= ~(1 << lcdP->enPin);				// assure E is cleared
 	micro_delay(1);
 	*lcdP->ctrlPort |= (1 << lcdP->enPin);				//set E to 1 (see Figure 1)
