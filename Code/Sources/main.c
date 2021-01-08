@@ -2,7 +2,7 @@
 
 /* Instantiate LCD, RTC, and BME sensor */
 lcd_t lcd;
-rtc_manager_t rtc;
+ds3231_t ds3231;
 struct bme280_dev dev;
 mcp23017_t ioExpander;
 
@@ -28,36 +28,35 @@ int main(void)
 
 	i2cMasterInit(0);
 	/* Initialize mcp23017 */
-	mcpInit(&ioExpander, 0, &DDRB, &PORTB, PINB3); // Pin B 3 is reset pin
-	mcpSetPortDir(&ioExpander, MCP23017_PORTB, 0);
+	mcp23017Init(&ioExpander, 0, &DDRB, &PORTB, PINB3); // Pin B 3 is reset pin
+	mcp23017SetPortDir(&ioExpander, MCP23017_PORTB, 0);
 	
 	/* Initialize LCD */
-	//lcdInit(&lcd, &DDRB, &PORTB, PINB0, PINB1, PINB2, true, false);	
 	lcdInit(&lcd, &ioExpander, &DDRB, &PORTB, PINB0, PINB1, PINB2, true, false);	
 	/* Initialize bme sensor */
 	uint8_t devAddr = BME280_I2C_ADDR_PRIM;
 	initBME(&dev, userI2cRead, userI2cWrite, userDelayUs, &devAddr);
 	
 	/* Initialize and Configure RTC */
-	rtcInit(&rtc);
+	ds3231Init(&ds3231);
 	
 	// Set time 
 	uint8_t initialTime[7] = {00,7, 13, WED, 6, JAN, 21};
-	rtcSetTime(&rtc, initialTime);
+	ds3231SetTime(&ds3231, initialTime);
 	
 	// Set Alarm 2 to occur every minute
 	uint8_t a2Time[4] = {00, 00, 00, 00};
-	rtcSetAlarm2(&rtc, a2Time, A2_MATCH_ONCE_PER_MIN, setUpdateFlag, NULL);
+	ds3231SetAlarm2(&ds3231, a2Time, A2_MATCH_ONCE_PER_MIN, setUpdateFlag, NULL);
 	
 	/* Build and print special symbols */
 	printSymbols(&lcd);
 
 	while(1)
 	{
-		rtcPoll(&rtc);
+		ds3231Poll(&ds3231);
 		if(updateFlag)
 		{
-			printTime(&lcd, &rtc);
+			printTime(&lcd, &ds3231);
 			if(!getSensorDataForcedMode(&lcd, &dev))
 			{
 				//print error
@@ -68,29 +67,29 @@ int main(void)
 	
 }
 
-/* Alarm 2 callback function to indicate rtc has been updated */
+/* Alarm 2 callback function to indicate ds3231 has been updated */
 void setUpdateFlag()
 {
 	updateFlag = true;
 }
 
 /* Print time on LCD */
-void printTime(lcd_t *lcdP,rtc_manager_t *rtcP)
+void printTime(lcd_t *lcdP,ds3231_t *ds3231P)
 {
 	// Set cursor to (0,1) to print Hour:Min in LCD
 	lcdSetCursor(lcdP, 0, 1);
 	char lcdBuff[20] = {0};
 	
 	// Print Hour and Minute
-	snprintf(lcdBuff, 20, "%02x:%02x", rtc.time[TIME_UNITS_HR], rtc.time[TIME_UNITS_MIN]);
+	snprintf(lcdBuff, 20, "%02x:%02x", ds3231.time[TIME_UNITS_HR], ds3231.time[TIME_UNITS_MIN]);
 	lcdPrint(lcdP, lcdBuff);
 	
 	// Set cursor to (0,7) to print Date/month/year on LCD 
 	lcdSetCursor(lcdP, 0, 8);
 	
 	// Print date
-	snprintf(lcdBuff, 20,"%02x/%02x/%02x", rtc.time[TIME_UNITS_MO_CEN] & 0x1F, rtc.time[TIME_UNITS_DT],
-										rtc.time[TIME_UNITS_YR]);
+	snprintf(lcdBuff, 20,"%02x/%02x/%02x", ds3231.time[TIME_UNITS_MO_CEN] & 0x1F, ds3231.time[TIME_UNITS_DT],
+										ds3231.time[TIME_UNITS_YR]);
 	lcdPrint(lcdP, lcdBuff);
 	lcdHome(lcdP);
 }
