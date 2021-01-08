@@ -17,7 +17,7 @@
 //#include "DHT11.h"
 #include "timer.h"
 //#include "Moisture_Sensor.h"
-#include "rtc.h"
+#include "ds3231.h"
 #include "i2cMasterControl.h"
 #include "LCD.h"
 #include "mcp23017.h"
@@ -29,7 +29,7 @@
 
 void setUpdateFlag();
 
-void printTime(lcd_t *lcdP, rtc_manager_t *rtcP);
+void printTime(lcd_t *lcdP, ds3231_t *ds3231P);
 
 void printSymbols(lcd_t *lcd);
 
