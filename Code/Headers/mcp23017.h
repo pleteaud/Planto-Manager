@@ -93,35 +93,28 @@ typedef struct mcp23017_s
 /************************************************************************/
 /*							Public Interfaces    	                    */
 /************************************************************************/
-void mcpInit(mcp23017_t *ioExpander, const uint8_t mcpAddr, volatile uint8_t *rstDdr, volatile uint8_t *rstPort, uint8_t rstPin);
+void mcp23017Init(mcp23017_t *deviceP, const uint8_t mcpAddr, volatile uint8_t *rstDdr, 
+				  volatile uint8_t *rstPort, uint8_t rstPin);
 
-void mcpReset(mcp23017_t *ioExpander);
+void mcp23017Reset(mcp23017_t *deviceP);
 
-bool mcpSetPinDir(mcp23017_t *ioExpander, const uint8_t port, const uint8_t pin, const bool level);
+bool mcp23017SetPinDir(mcp23017_t *deviceP, const uint8_t port, const uint8_t pin, const bool level);
 
-bool mcpSetPortDir(mcp23017_t *ioExpander, const uint8_t port, const uint8_t portVal);
+bool mcp23017SetPortDir(mcp23017_t *deviceP, const uint8_t port, const uint8_t portVal);
 
-bool mcpSetPinLevel(mcp23017_t *ioExpander, const uint8_t port, const uint8_t pin, const bool level);
+bool mcp23017SetPinLevel(mcp23017_t *deviceP, const uint8_t port, const uint8_t pin, const bool level);
 
-bool mcpSetPortLevel(mcp23017_t *ioExpander, const uint8_t port, const uint8_t portVal);
+bool mcp23017SetPortLevel(mcp23017_t *deviceP, const uint8_t port, const uint8_t portVal);
 
-bool mcpSetPinPol(mcp23017_t *ioExpander, const uint8_t port, const uint8_t pin, const bool level);
+bool mcp23017SetPinPol(mcp23017_t *deviceP, const uint8_t port, const uint8_t pin, const bool level);
 
-bool mcpSetPinPull(mcp23017_t *ioExpander, const uint8_t port, const uint8_t pin, const bool level);
+bool mcp23017SetPinPull(mcp23017_t *deviceP, const uint8_t port, const uint8_t pin, const bool level);
 
-bool mcpReadPortLevel(mcp23017_t *ioExpander, const uint8_t port, uint8_t *dataBuff);
+bool mcp23017ReadPortLevel(mcp23017_t *deviceP, const uint8_t port, uint8_t *dataBuff);
 
-bool mcpSetIocon(mcp23017_t *ioExpander, 
-					const uint8_t port, 
-					const bool bank, 
-					const bool mirror,
-					const bool seqop, 
-					const bool disslw, 
-					const bool odr, 
-					const bool intpol);
+bool mcp23017SetIocon(mcp23017_t *deviceP, const uint8_t port, const bool bank, const bool mirror,
+				      const bool seqop, const bool disslw, const bool odr, const bool intpol);
 					
 // Need to add interrupt functionality in the future
 // need to add function to modify/read output latch register
-
-
 #endif /* MCP23017_H_ */

@@ -15,7 +15,7 @@
 /************************************************************************/
 /*                      Private Function Declaration                    */
 /************************************************************************/
-static bool updateReg(mcp23017_t *ioExpander, 
+static bool updateReg(mcp23017_t *deviceP, 
 				const uint8_t regAddr, 
 				uint8_t pin, 
 				const bool level, 
@@ -23,7 +23,7 @@ static bool updateReg(mcp23017_t *ioExpander,
 				const uint8_t newVal);
 
 static bool readReg(const uint8_t deviceAddr, const uint8_t regAddr, uint8_t *resp);
-static bool mcpReadAllRegs(mcp23017_t *ioExpander);
+static bool readAllRegs(mcp23017_t *deviceP);
 static void setupRegAddrs(uint8_t mcpRegAddr[], const bool bank);
 static uint8_t mcpGetAddr(uint8_t pin, uint8_t portAaddr, uint8_t portBaddr);
 
@@ -32,113 +32,112 @@ static uint8_t mcpGetAddr(uint8_t pin, uint8_t portAaddr, uint8_t portBaddr);
 /************************************************************************/
 /**
 *	Initialize mcp object and the configure the control pin's port
-*	@param	ioExpander: mcp23017 instance.
+*	@param	deviceP: mcp23017 instance.
 *	@param	mcpAddr: device address (max value is 7: A2=1, A1=1, A0=1).
 *	@param	rstDdr: reset pin data direction port
 *	@param	rstPort: reset pin port
 *	@param	rsPin: reset pin number
 */
-void mcpInit(mcp23017_t *ioExpander, const uint8_t mcpAddr, volatile uint8_t *rstDdr, volatile uint8_t *rstPort, uint8_t rstPin)
+void mcp23017Init(mcp23017_t *deviceP, const uint8_t mcpAddr, volatile uint8_t *rstDdr, volatile uint8_t *rstPort, uint8_t rstPin)
 {
 	// configure appropriate bit of ddr as output
 	*rstDdr |= (1 << rstPin);
 	
 	// Store ddr and pinnum in mcp object 
-	ioExpander->rstDdr = rstDdr;
-	ioExpander->rstPort = rstPort;
-	ioExpander->rstPin = rstPin;
+	deviceP->rstDdr = rstDdr;
+	deviceP->rstPort = rstPort;
+	deviceP->rstPin = rstPin;
 	
 	// reset mcp
-	mcpReset(ioExpander);
-	
+	mcp23017Reset(deviceP);
 	
 	// Update mcp address
 	if (mcpAddr > 7)
-		ioExpander->addr = MCP23017_DEF_ADDR | 7;
+		deviceP->addr = MCP23017_DEF_ADDR | 7;
 	else
-		ioExpander->addr = MCP23017_DEF_ADDR | mcpAddr;
+		deviceP->addr = MCP23017_DEF_ADDR | mcpAddr;
 	
 	// configure the address of each register according to iocon.bank = 0 (default val)
-	setupRegAddrs(ioExpander->mcpRegAddrs, false);
+	setupRegAddrs(deviceP->mcpRegAddrs, false);
 	// Read the default register values of mcp23017 device
-	mcpReadAllRegs(ioExpander);
+	readAllRegs(deviceP);
 }
 
 /**
 *	Reset mcp23017
-*	@param	ioExpander: mcp23027 instance.
+*	@param	deviceP: mcp23027 instance.
 */
-void mcpReset(mcp23017_t *ioExpander)
+void mcp23017Reset(mcp23017_t *deviceP)
 {
 	// set reset pin low for 10 us
-	*ioExpander->rstPort &= ~(1 << ioExpander->rstPin);
+	*deviceP->rstPort &= ~(1 << deviceP->rstPin);
 	micro_delay(10);
-	*ioExpander->rstPort |= (1 << ioExpander->rstPin);
+	*deviceP->rstPort |= (1 << deviceP->rstPin);
 }
 
 // Set a pin's data direction
-bool mcpSetPinDir(mcp23017_t *ioExpander, 
+bool mcp23017SetPinDir(mcp23017_t *deviceP, 
 					const uint8_t port, 
 					const uint8_t pin, 
 					const bool level)
 {	
 		
-	return updateReg(ioExpander, port ? ioExpander->mcpRegAddrs[MCP23017_IODIRB] : ioExpander->mcpRegAddrs[MCP23017_IODIRA], pin, level, false, 0);
+	return updateReg(deviceP, port ? deviceP->mcpRegAddrs[MCP23017_IODIRB] : deviceP->mcpRegAddrs[MCP23017_IODIRA], pin, level, false, 0);
 }
 
 // Set a port's data direction
-bool mcpSetPortDir(mcp23017_t *ioExpander,
+bool mcp23017SetPortDir(mcp23017_t *deviceP,
 					const uint8_t port,
 					const uint8_t portVal)
 {
-	return updateReg(ioExpander, port ? ioExpander->mcpRegAddrs[MCP23017_IODIRB] : ioExpander->mcpRegAddrs[MCP23017_IODIRA], 0, 0, true, portVal);
+	return updateReg(deviceP, port ? deviceP->mcpRegAddrs[MCP23017_IODIRB] : deviceP->mcpRegAddrs[MCP23017_IODIRA], 0, 0, true, portVal);
 }
 
 // Set a pin's polarity
-bool mcpSetPinPol(mcp23017_t *ioExpander, 
+bool mcp23017SetPinPol(mcp23017_t *deviceP, 
 					const uint8_t port, 
 					const uint8_t pin, 
 					const bool level)
 {
-	return updateReg(ioExpander, port ? ioExpander->mcpRegAddrs[MCP23017_IPOLB] : ioExpander->mcpRegAddrs[MCP23017_IPOLA], pin, level, false,0);
+	return updateReg(deviceP, port ? deviceP->mcpRegAddrs[MCP23017_IPOLB] : deviceP->mcpRegAddrs[MCP23017_IPOLA], pin, level, false,0);
 }
 
 // Set a pin's level
-bool mcpSetPinLevel(mcp23017_t *ioExpander, 
+bool mcp23017SetPinLevel(mcp23017_t *deviceP, 
 					const uint8_t port,
 					const uint8_t pin,
 					const bool level)
 {
-	return updateReg(ioExpander, port ? ioExpander->mcpRegAddrs[MCP23017_GPIOB] : ioExpander->mcpRegAddrs[MCP23017_GPIOA], pin, level, false, 0);
+	return updateReg(deviceP, port ? deviceP->mcpRegAddrs[MCP23017_GPIOB] : deviceP->mcpRegAddrs[MCP23017_GPIOA], pin, level, false, 0);
 }
 
 // Set a port's level
-bool mcpSetPortLevel(mcp23017_t *ioExpander,
+bool mcp23017SetPortLevel(mcp23017_t *deviceP,
 						const uint8_t port,
 						const uint8_t portVal)
 {
-	return updateReg(ioExpander, port ? ioExpander->mcpRegAddrs[MCP23017_GPIOB] : ioExpander->mcpRegAddrs[MCP23017_GPIOA], 0, 0, true, portVal);
+	return updateReg(deviceP, port ? deviceP->mcpRegAddrs[MCP23017_GPIOB] : deviceP->mcpRegAddrs[MCP23017_GPIOA], 0, 0, true, portVal);
 }
 
 // Set whether pullup on a pin is activated or not
-bool mcpSetPinPull(mcp23017_t *ioExpander, 
+bool mcp23017SetPinPull(mcp23017_t *deviceP, 
 					const uint8_t port, 
 					const uint8_t pin, 
 					const bool level)
 {
-	return updateReg(ioExpander, port ? ioExpander->mcpRegAddrs[MCP23017_GPPUB] : ioExpander->mcpRegAddrs[MCP23017_GPPUA], pin, level, false, 0);
+	return updateReg(deviceP, port ? deviceP->mcpRegAddrs[MCP23017_GPPUB] : deviceP->mcpRegAddrs[MCP23017_GPPUA], pin, level, false, 0);
 }
 
 // Read a port's value
-bool mcpReadPortLevel(mcp23017_t *ioExpander, 
+bool mcp23017ReadPortLevel(mcp23017_t *deviceP, 
 						const uint8_t port, 
 						uint8_t *dataBuff)
 {
-	return readReg(ioExpander->addr, port ? ioExpander->mcpRegAddrs[MCP23017_GPIOB] : ioExpander->mcpRegAddrs[MCP23017_GPIOA], dataBuff);
+	return readReg(deviceP->addr, port ? deviceP->mcpRegAddrs[MCP23017_GPIOB] : deviceP->mcpRegAddrs[MCP23017_GPIOA], dataBuff);
 }
 
 // Change the Iocon register of device
-bool mcpSetIocon(mcp23017_t *ioExpander,
+bool mcp23017SetIocon(mcp23017_t *deviceP,
 					const uint8_t port,
 					const bool bank,
 					const bool mirror,
@@ -153,7 +152,7 @@ bool mcpSetIocon(mcp23017_t *ioExpander,
 	uint8_t newIocon =	(bank << 7) | (mirror << 6) | (seqop << 5) | (disslw << 4) |
 						haen | (odr << 2) | (intpol << 1);
 
-	return updateReg(ioExpander, port ? ioExpander->mcpRegAddrs[MCP23017_IOCONB] : ioExpander->mcpRegAddrs[MCP23017_IOCONA], 0, 0, true, newIocon);
+	return updateReg(deviceP, port ? deviceP->mcpRegAddrs[MCP23017_IOCONB] : deviceP->mcpRegAddrs[MCP23017_IOCONA], 0, 0, true, newIocon);
 }
 
 
@@ -162,32 +161,28 @@ bool mcpSetIocon(mcp23017_t *ioExpander,
 /************************************************************************/
 
 // Update register using I2C
-static bool updateReg(mcp23017_t *ioExpander, 
-						const uint8_t regAddr, 
-						uint8_t pin, 
-						const bool level, 
-						bool updateType, 
-						const uint8_t newVal)
+static bool updateReg(mcp23017_t *deviceP, const uint8_t regAddr, uint8_t pin, const bool level, 
+					  bool updateType, const uint8_t newVal)
 {
 	bool status = false;
 	
-	uint8_t oldReg = ioExpander->registers[regAddr];
+	uint8_t oldReg = deviceP->registers[regAddr];
 	
 	//Updating byte
 	if (updateType)
-		ioExpander->registers[regAddr] = newVal;
+		deviceP->registers[regAddr] = newVal;
 	
 	// Update bit
 	else
-		ioExpander->registers[regAddr] = level ? oldReg | (1 << pin) : oldReg & ~(1 << pin); 
+		deviceP->registers[regAddr] = level ? oldReg | (1 << pin) : oldReg & ~(1 << pin); 
 	
-	uint8_t dataP[2] = { regAddr, ioExpander->registers[regAddr] };
+	uint8_t dataP[2] = { regAddr, deviceP->registers[regAddr] };
 	
 	// If transmission fails, return mcp register back to previous value
-	if (i2cMasterTransmit(ioExpander->addr, dataP, 2)) 
+	if (i2cMasterTransmit(deviceP->addr, dataP, 2)) 
 		status = true;
 	else 
-		ioExpander->registers[regAddr] = oldReg;
+		deviceP->registers[regAddr] = oldReg;
 	
 	return status;
 }
@@ -230,14 +225,14 @@ static void setupRegAddrs(uint8_t mcpRegAddr[], const bool bank)
 }
 
 // REad all registers
-static bool mcpReadAllRegs(mcp23017_t *ioExpander)
+static bool readAllRegs(mcp23017_t *deviceP)
 {
 	for (int i = MCP23017_IODIRA; i < NUMBER_OF_REGS; i++)
 	{
-		uint8_t regAddr =  ioExpander->mcpRegAddrs[i]; // acquire the address of specific register
-		uint8_t *dataP = &ioExpander->registers[regAddr];
-		if(!readReg(ioExpander->addr, regAddr, dataP))
-			return false; //add LED indicator of an error
+		uint8_t regAddr =  deviceP->mcpRegAddrs[i]; // acquire the address of specific register
+		uint8_t *dataP = &deviceP->registers[regAddr];
+		if(!readReg(deviceP->addr, regAddr, dataP))
+			return false; 
 	}
 	return true;
 }
