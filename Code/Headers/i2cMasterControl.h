@@ -16,12 +16,12 @@
 /************************************************************************/
 /*							Public Interfaces    	                    */
 /************************************************************************/
-void i2cMasterInit(uint8_t slaveAddress);
+void i2cMasterInit(const uint8_t slaveAddress);
 //bool i2cMasterRead(uint8_t *buffP,uint8_t dataSize);
-bool i2cMasterRead(uint8_t newAddr, uint8_t *buffP, uint8_t size);
+bool i2cMasterRead(const uint8_t newAddr, uint8_t *buffP, const uint8_t size);
 //bool i2cMasterTransmit(uint8_t *payload,uint8_t dataSize);
-bool i2cMasterTransmit(uint8_t newAddr, uint8_t *payload, uint8_t size);
-void i2cMasterChangeAddr(uint8_t newAddr);
+bool i2cMasterTransmit(const uint8_t newAddr, uint8_t *payload, const uint8_t size);
+void i2cMasterChangeAddr(const uint8_t newAddr);
 void resetI2c(void);
 bool returnBusy();
 #endif /* I2CMASTER_H_ */
