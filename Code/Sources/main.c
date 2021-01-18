@@ -25,17 +25,19 @@ int main(void)
 {
 	/* Initializes MCU, drivers and middleware */
 	atmel_start_init();
-
-	i2cMasterInit(0);
-	/* Initialize mcp23017 */
-	mcp23017Init(&ioExpander, 0, &DDRB, &PORTB, PINB3); // Pin B 3 is reset pin
-	mcp23017SetPortDir(&ioExpander, MCP23017_PORTB, 0);
+	
+	// Start free running timer 
+	startMillisTimer();
+ 	i2cMasterInit(0);
+ 	/* Initialize mcp23017 */
+ 	mcp23017Init(&ioExpander, 0, &DDRB, &PORTB, PINB3); // Pin B 3 is reset pin
 	
 	/* Initialize LCD */
-	lcdInit(&lcd, &ioExpander, &DDRB, &PORTB, PINB0, PINB1, PINB2, true, false);	
+	lcdInit(&lcd, &ioExpander, &DDRB, &PORTB, PINB0, PINB1, PINB2, true, false);
+		
 	/* Initialize bme sensor */
 	uint8_t devAddr = BME280_I2C_ADDR_PRIM;
-	initBME(&dev, userI2cRead, userI2cWrite, userDelayUs, &devAddr);
+	//initBME(&dev, userI2cRead, userI2cWrite, userDelayUs, &devAddr);
 	
 	/* Initialize and Configure RTC */
 	ds3231Init(&ds3231);
@@ -50,9 +52,13 @@ int main(void)
 	
 	/* Build and print special symbols */
 	printSymbols(&lcd);
-
+	
+	char s;
+	keypad_t keypad;
+	keypadInit(&keypad);
 	while(1)
 	{
+		s = getKeyPress(&keypad);
 		ds3231Poll(&ds3231);
 		if(updateFlag)
 		{
