@@ -76,75 +76,51 @@ void mcp23017Reset(mcp23017_t *deviceP)
 }
 
 // Set a pin's data direction
-bool mcp23017SetPinDir(mcp23017_t *deviceP, 
-					const uint8_t port, 
-					const uint8_t pin, 
-					const bool level)
+bool mcp23017SetPinDir(mcp23017_t *deviceP, const uint8_t port, const uint8_t pin, const bool level)
 {	
 		
 	return updateReg(deviceP, port ? deviceP->mcpRegAddrs[MCP23017_IODIRB] : deviceP->mcpRegAddrs[MCP23017_IODIRA], pin, level, false, 0);
 }
 
 // Set a port's data direction
-bool mcp23017SetPortDir(mcp23017_t *deviceP,
-					const uint8_t port,
-					const uint8_t portVal)
+bool mcp23017SetPortDir(mcp23017_t *deviceP, const uint8_t port, const uint8_t portVal)
 {
 	return updateReg(deviceP, port ? deviceP->mcpRegAddrs[MCP23017_IODIRB] : deviceP->mcpRegAddrs[MCP23017_IODIRA], 0, 0, true, portVal);
 }
 
 // Set a pin's polarity
-bool mcp23017SetPinPol(mcp23017_t *deviceP, 
-					const uint8_t port, 
-					const uint8_t pin, 
-					const bool level)
+bool mcp23017SetPinPol(mcp23017_t *deviceP, const uint8_t port,	const uint8_t pin,	const bool level)
 {
 	return updateReg(deviceP, port ? deviceP->mcpRegAddrs[MCP23017_IPOLB] : deviceP->mcpRegAddrs[MCP23017_IPOLA], pin, level, false,0);
 }
 
 // Set a pin's level
-bool mcp23017SetPinLevel(mcp23017_t *deviceP, 
-					const uint8_t port,
-					const uint8_t pin,
-					const bool level)
+bool mcp23017SetPinLevel(mcp23017_t *deviceP, const uint8_t port, const uint8_t pin, const bool level)
 {
 	return updateReg(deviceP, port ? deviceP->mcpRegAddrs[MCP23017_GPIOB] : deviceP->mcpRegAddrs[MCP23017_GPIOA], pin, level, false, 0);
 }
 
 // Set a port's level
-bool mcp23017SetPortLevel(mcp23017_t *deviceP,
-						const uint8_t port,
-						const uint8_t portVal)
+bool mcp23017SetPortLevel(mcp23017_t *deviceP, const uint8_t port, const uint8_t portVal)
 {
 	return updateReg(deviceP, port ? deviceP->mcpRegAddrs[MCP23017_GPIOB] : deviceP->mcpRegAddrs[MCP23017_GPIOA], 0, 0, true, portVal);
 }
 
 // Set whether pullup on a pin is activated or not
-bool mcp23017SetPinPull(mcp23017_t *deviceP, 
-					const uint8_t port, 
-					const uint8_t pin, 
-					const bool level)
+bool mcp23017SetPinPull(mcp23017_t *deviceP, const uint8_t port, const uint8_t pin,	const bool level)
 {
 	return updateReg(deviceP, port ? deviceP->mcpRegAddrs[MCP23017_GPPUB] : deviceP->mcpRegAddrs[MCP23017_GPPUA], pin, level, false, 0);
 }
 
 // Read a port's value
-bool mcp23017ReadPortLevel(mcp23017_t *deviceP, 
-						const uint8_t port, 
-						uint8_t *dataBuff)
+bool mcp23017ReadPortLevel(mcp23017_t *deviceP, const uint8_t port,	uint8_t *dataBuff)
 {
 	return readReg(deviceP->addr, port ? deviceP->mcpRegAddrs[MCP23017_GPIOB] : deviceP->mcpRegAddrs[MCP23017_GPIOA], dataBuff);
 }
 
 // Change the Iocon register of device
-bool mcp23017SetIocon(mcp23017_t *deviceP,
-					const uint8_t port,
-					const bool bank,
-					const bool mirror,
-					const bool seqop,
-					const bool disslw,
-					const bool odr,
-					const bool intpol)
+bool mcp23017SetIocon(mcp23017_t *deviceP, const uint8_t port, const bool bank, const bool mirror,
+					  const bool seqop, const bool disslw, const bool odr, const bool intpol)
 {
 	/* Add functionality to change icon.bank bit */
 	// Configure IOCON register
