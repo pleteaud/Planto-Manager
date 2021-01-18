@@ -9,7 +9,9 @@
 /*                     Includes/Constants                               */
 /************************************************************************/
 #include "timer.h"
-static uint16_t milliSecond;
+
+#define MAX_INT32_VAL	0xFFFFFFFF
+static uint32_t milliSecond;
 
 /************************************************************************/
 /*                      Public Functions Implementations                */
@@ -44,13 +46,14 @@ void stopMillisTimer()
 /* Interrupt Callback to update milliseconds count */
 void updateMillis()
 {
-	milliSecond++;
+	milliSecond = milliSecond < MAX_INT32_VAL ? milliSecond + 1 : 0;
+
 	/*reset tick count*/
 	TCNT1 = 0;
 }
 
 /* Retrieve milliseconds count */
-uint16_t getMillis()
+uint32_t getMillis()
 {
 	return milliSecond;
 }
