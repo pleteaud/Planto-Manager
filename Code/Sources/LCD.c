@@ -83,9 +83,7 @@ void lcdInit(lcd_t *lcdP, mcp23017_t *ioExpander, volatile uint8_t *ctrlDdr, vol
 	lcdP->enPin = enPin;
 	lcdP->ioExpander = ioExpander;
 	
-	// Initialize io expander to have GPIO B as output
-// 	mcpInit(&ioExpander, 0, &DDRB, &PORTB, PINB3);
-// 	mcpSetPortDir(&ioExpander, MCP23017_PORTB, 0);
+	mcp23017SetPortDir(lcdP->ioExpander, MCP23017_PORTB, 0); // set port b direction to output for lcd
 
 	/*** Process to initialize LCM Pg 16 of LCD1602A data sheet ***/
     milli_delay(50);						// power on delay for > 15ms 
@@ -342,7 +340,7 @@ static uint8_t lcdRead(lcd_t *lcdP, uint8_t rsFlag)
 	*lcdP->ctrlPort |= (1 << lcdP->enPin);					//set E to 1 (see Figure 1)
 	micro_delay(1);											// need to be on for > 230ns
 	*lcdP->ctrlPort &=  ~(1 << lcdP->enPin);				// set E to 0 to generate a falling edge
-	mcpReadPortLevel(lcdP->ioExpander, MCP23017_PORTB, &val);	// Read port level
+	mcp23017ReadPortLevel(lcdP->ioExpander, MCP23017_PORTB, &val);	// Read port level
 	return val;
 }
 
