@@ -22,6 +22,7 @@
 #include "LCD.h"
 #include "mcp23017.h"
 #include "BME280_driver-master/bme280.h"
+#include "keypad.h"
 
 /************************************************************************/
 /*							Public Interfaces    	                    */
