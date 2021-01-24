@@ -13,7 +13,7 @@
 #include "timer.h"
 
 #define DEBOUNCE_TIME				5		//ms
-#define HOLD_TIME					250		//ms
+#define HOLD_TIME					200		//ms
 #define MAX_COUNT					HOLD_TIME / DEBOUNCE_TIME
 #define ROWS_SIZE					4
 #define COLUMN_SIZE					4
