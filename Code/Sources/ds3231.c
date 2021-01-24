@@ -61,6 +61,7 @@ static void ds3231Update(ds3231_t *deviceP, const uint8_t regs[]);
 static bool ds3231SetTimeRegs(ds3231_t *deviceP, const uint8_t cmdBuffSize, const uint8_t startAddr,
 						   uint8_t *time, const uint8_t numTimeUnits);
 
+static bool verifyTime(uint8_t time, time_units_t unit);
 /************************************************************************/
 /*                      Public Functions Implementations                */
 /************************************************************************/
@@ -185,7 +186,12 @@ bool ds3231SetTime(ds3231_t *deviceP, uint8_t *time)
 	{
 		// If successful update time data member
 		for (uint8_t i = RTC_SEC_ADDR; i < TIME_UNITS_TOTAL; i++) //startAddr will match enum value of register
-			deviceP->time[i] = time[i];
+		{	
+			if(verifyTime(time[i], i))
+				deviceP->time[i] = time[i];
+			else
+				return false;
+		}
 		return true;
 	}
 	return false;
@@ -493,3 +499,38 @@ static bool ds3231SetTimeRegs(ds3231_t *deviceP, const uint8_t cmdBuffSize, cons
 	return i2cMasterTransmit(DS3231_SLAVE_ADDR, cmdBuffer, cmdBuffSize);
 }
 
+static bool verifyTime(uint8_t time, time_units_t unit)
+{
+	if (time < 0)
+		return false;
+		
+	switch (unit)
+	{
+		case TIME_UNITS_SEC:
+		case TIME_UNITS_MIN:
+			if (time > 59)
+				return false;
+			break;
+		case TIME_UNITS_HR:
+			if (time > 23)
+				return false;
+			break;
+		case TIME_UNITS_DY:
+			if (time < MON || time > SUN)
+				return false;
+			break;
+		case TIME_UNITS_DT:
+			if (time > 31)
+				return false;
+			break;
+		case TIME_UNITS_MO_CEN:
+			if (time < 1 || time > 12)
+				return false;
+			break;
+		case TIME_UNITS_YR:
+			if (time > 99)
+				return false;
+			break;
+	}
+	return true;
+}
