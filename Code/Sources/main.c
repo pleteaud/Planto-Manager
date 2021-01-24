@@ -5,6 +5,7 @@ lcd_t lcd;
 ds3231_t ds3231;
 struct bme280_dev dev;
 mcp23017_t ioExpander;
+keypad_t keypad;
 
 /* Custom Pattern byte for clock */
 unsigned char clockSymbol[] = {0x0,0xe,0x15,0x17,0x11,0xe,0x0,0x00};
@@ -20,56 +21,53 @@ uint8_t degreeSymLoc = 3;
 unsigned char humiditySym[] = {0x04,0x04,0x0A,0x0A,0x11,0x11,0x11,0x0E};
 uint8_t humiditySymLoc = 4;
 
+void setTime(ds3231_t *ds3231P, lcd_t *lcdP, keypad_t *keypad);
+static uint32_t readDigit(keypad_t *keypadP, char *str);
+static void printErrorMessage(lcd_t *lcdP, char *msg);
+
 static bool updateFlag = false;
 int main(void)
 {
-	/* Initializes MCU, drivers and middleware */
-	atmel_start_init();
-	
-	// Start free running timer 
-	startMillisTimer();
- 	i2cMasterInit(0);
- 	/* Initialize mcp23017 */
- 	mcp23017Init(&ioExpander, 0, &DDRB, &PORTB, PINB3); // Pin B 3 is reset pin
-	
-	/* Initialize LCD */
-	lcdInit(&lcd, &ioExpander, &DDRB, &PORTB, PINB0, PINB1, PINB2, true, false);
-		
-	/* Initialize bme sensor */
-	uint8_t devAddr = BME280_I2C_ADDR_PRIM;
-	//initBME(&dev, userI2cRead, userI2cWrite, userDelayUs, &devAddr);
-	
-	/* Initialize and Configure RTC */
-	ds3231Init(&ds3231);
-	
-	// Set time 
-	uint8_t initialTime[7] = {00,7, 13, WED, 6, JAN, 21};
-	ds3231SetTime(&ds3231, initialTime);
-	
-	// Set Alarm 2 to occur every minute
-	uint8_t a2Time[4] = {00, 00, 00, 00};
+ 	/* Initializes MCU, drivers and middleware */
+ 	atmel_start_init();	  	// Start free running timer  	startMillisTimer(); 	/* Initialize keypad */ 	keypadInit(&keypad);
+ 	/* Initialize I2C */  	i2cMasterInit(0);
+  	/* Initialize mcp23017 */  	mcp23017Init(&ioExpander, 0, &DDRB, &PORTB, PINB3); // Pin B 3 is reset pin
+ 	
+ 	/* Initialize LCD */
+ 	lcdInit(&lcd, &ioExpander, &DDRB, &PORTB, PINB0, PINB1, PINB2, true, false);
+
+// 	/* Initialize bme sensor */
+// 	uint8_t devAddr = BME280_I2C_ADDR_PRIM;
+// 	initBME(&dev, userI2cRead, userI2cWrite, userDelayUs, &devAddr);
+// 	
+ 	/* Initialize and Configure RTC */
+ 	ds3231Init(&ds3231);
+	 
+ 	// Set Alarm 2 to occur every minute
+ 	uint8_t a2Time[4] = {00, 00, 00, 00};	 
 	ds3231SetAlarm2(&ds3231, a2Time, A2_MATCH_ONCE_PER_MIN, setUpdateFlag, NULL);
-	
-	/* Build and print special symbols */
-	printSymbols(&lcd);
-	
-	char s;
-	keypad_t keypad;
-	keypadInit(&keypad);
-	while(1)
-	{
-		s = getKeyPress(&keypad);
-		ds3231Poll(&ds3231);
-		if(updateFlag)
-		{
-			printTime(&lcd, &ds3231);
-			if(!getSensorDataForcedMode(&lcd, &dev))
-			{
-				//print error
-			}
-			updateFlag = false;
-		}
-	}
+ 	
+	// Set time 
+ 	printTime(&lcd, &ds3231);
+ 	printSymbols(&lcd);
+ 	setTime(&ds3231, &lcd, &keypad);
+	/* Build and print special symbols */
+
+ 	char s;
+ 	while(1)
+ 	{
+ 		s = getKeyPress(&keypad);
+ 		ds3231Poll(&ds3231);
+ 		if(updateFlag)
+ 		{
+ 			printTime(&lcd, &ds3231);
+ 			//if(!getSensorDataForcedMode(&lcd, &dev))//
+ 			//{//
+ 				////print error//
+ 			//}
+ 			updateFlag = false;
+ 		}
+ 	}
 	
 }
 
@@ -80,7 +78,7 @@ void setUpdateFlag()
 }
 
 /* Print time on LCD */
-void printTime(lcd_t *lcdP,ds3231_t *ds3231P)
+void printTime(lcd_t *lcdP, ds3231_t *ds3231P)
 {
 	// Set cursor to (0,1) to print Hour:Min in LCD
 	lcdSetCursor(lcdP, 0, 1);
@@ -293,3 +291,90 @@ int8_t getSensorDataForcedMode(lcd_t *lcdP, struct bme280_dev *dev)
     return rslt;
 }
 
+void setTime(ds3231_t *ds3231P, lcd_t *lcdP, keypad_t *keypad)
+{
+	uint8_t time[7] = {0};
+	bool status = false;
+	
+	char message[] = "Invalid Time";
+	lcdSetCursor(lcdP, 0, 1);
+	
+	uint8_t i = TIME_UNITS_HR;
+	while(i != TIME_UNITS_TOTAL)
+	{
+		// Extract two digits and print to lcd
+		for (uint8_t j = 0; j < 2; j++)
+		{
+			
+			char string[2] = {'\0'};
+			uint32_t digit = readDigit(keypad, string);
+			
+			if(string[0] < '0' || string[0] > '9')
+			{
+				printErrorMessage(lcdP, message);
+				return;
+			}	
+			
+			time[i] += (j == 1 ? digit : 10 * digit);
+			
+			lcdPrint(lcdP, string); //print digit
+			milli_delay(150);
+		}
+		
+		switch (i)
+		{
+			case TIME_UNITS_MIN:
+				i = TIME_UNITS_MO_CEN;
+				lcdSetCursor(lcdP, 0, 8);
+				break;
+			case TIME_UNITS_HR:
+				i = TIME_UNITS_MIN;
+				lcdSetCursor(lcdP, 0, 4);
+				break;
+			case TIME_UNITS_DY:
+				//skip for now. future updates will include that
+				break;
+			case TIME_UNITS_DT:
+				i = TIME_UNITS_YR;
+				lcdSetCursor(lcdP, 0, 14);
+				break;
+			case TIME_UNITS_MO_CEN:
+				i = TIME_UNITS_DT;
+				lcdSetCursor(lcdP, 0, 11);
+				break;
+			case TIME_UNITS_YR:
+				i = TIME_UNITS_TOTAL;
+				break;
+		}
+	}
+	
+	if (!ds3231SetTime(&ds3231, time))
+		printErrorMessage(lcdP, message);
+}
+
+static uint32_t readDigit(keypad_t *keypadP, char *str)
+{
+	unsigned int digit = 0;
+	char s = '\0';
+	while(s == '\0')
+		s = getKeyPress(keypadP);
+		
+	sscanf(&s, "%1u", &digit);
+	
+	// Save the digit inside str if not null
+	if(str != NULL)
+		*str = s;
+			
+	return digit;
+}
+
+static void printErrorMessage(lcd_t *lcdP, char *msg)
+{
+	for (uint8_t i = 0; i < 16; i++)
+	{
+		lcdScrollDisplayLeft(lcdP);
+	}
+	lcdSetCursor(lcdP, 0, 16);
+	lcdPrint(lcdP, msg);
+	lcdHome(lcdP);
+}
