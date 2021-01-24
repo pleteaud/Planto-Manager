@@ -23,11 +23,11 @@
 /************************************************************************/
 
 // Time units
-enum time_units_e
+typedef enum time_units_e
 {
 	TIME_UNITS_SEC = 0, TIME_UNITS_MIN, TIME_UNITS_HR, TIME_UNITS_DY, TIME_UNITS_DT,
 	TIME_UNITS_MO_CEN, 	TIME_UNITS_YR, TIME_UNITS_TOTAL
-};
+} time_units_t;
 
 typedef enum days_e 
 {
